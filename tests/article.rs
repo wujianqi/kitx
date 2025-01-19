@@ -1,8 +1,12 @@
 use field_access::FieldAccess;
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
+<<<<<<< HEAD
 use kitx::mysql::operations::{DataOperations, EntityOperations};
 //use kitx::sqlite::operations::{DataOperations, EntityOperations};
+=======
+use kitx::sqlite::operations::{DataOperations, EntityOperations};
+>>>>>>> b0e16200fd5be220e3fbdfdf161f92205821e722
 //use chrono::{DateTime, Utc};
 
 #[derive(Debug, Serialize, Deserialize, Default, FromRow, FieldAccess, Clone)]
