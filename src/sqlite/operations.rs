@@ -3,21 +3,12 @@ use std::marker::PhantomData;
 use field_access::FieldAccess;
 use sqlx::sqlite::SqliteRow;
 use sqlx::{Error, FromRow};
-<<<<<<< HEAD
 
 use super::kind::{is_empty, value_convert, DataKind};
 use super::query;
 use super::sql::{field, AggregateFunction, JoinType, SQLBuilder as Builder, WhereClause};
 
 /// 数据操作结构体，用于对数据库中的实体进行增删改查等操作。
-=======
-use super::kind::{is_empty, value_convert, DataKind};
-use super::query;
-use super::sql::{field, AggregateFunction, Builder, JoinType};
-
-/// 数据操作结构体，用于对数据库中的实体进行增删改查等操作。
-#[allow(dead_code)]
->>>>>>> b0e16200fd5be220e3fbdfdf161f92205821e722
 pub struct EntityOperations<'a, T>
 where 
     T: for<'r> FromRow<'r, SqliteRow> + FieldAccess + Unpin + Send,
@@ -47,7 +38,6 @@ pub trait DataOperations<'a, T> {
     /// 更新数据库中的一条记录，并返回受影响的行数。参数为忽略空值或未提供的字段
     fn update(self, skip_empty_values: bool) -> impl Future<Output = Result<u64, Error>> + Send;
 
-<<<<<<< HEAD
     /// 更新数据库，按case when的方式更新记录，并返回受影响的行数。
     fn update_when<U, V>(
         self,
@@ -59,8 +49,6 @@ pub trait DataOperations<'a, T> {
         U: Into<DataKind<'a>> + Send,
         V: Into<DataKind<'a>> + Send;
 
-=======
->>>>>>> b0e16200fd5be220e3fbdfdf161f92205821e722
     /// 批量更新多条记录，并返回受影响的行数。
     fn update_many<F>(self, entities: Vec<T>) -> impl Future<Output = Result<u64, Error>> + Send;
 
@@ -68,17 +56,10 @@ pub trait DataOperations<'a, T> {
     fn delete(self) -> impl Future<Output = Result<u64, Error>> + Send;
 
     /// 删除一定范围内多条记录，并返回受影响的行数。
-<<<<<<< HEAD
     fn delete_many(self, keys: Vec<impl Into<DataKind<'a>> + Send>) -> impl Future<Output = Result<u64, Error>> + Send;
 
     /// 批量删除多条记录，并返回受影响的行数。
     fn batch_delete(self, keys: Vec<impl Into<DataKind<'a>> + Send>) -> impl Future<Output = Result<u64, Error>> + Send;
-=======
-    fn delete_many(self, keys: Vec<impl Into<DataKind> + Send>) -> impl Future<Output = Result<u64, Error>> + Send;
-
-    /// 批量删除多条记录，并返回受影响的行数。
-    fn batch_delete(self, keys: Vec<impl Into<DataKind> + Send>) -> impl Future<Output = Result<u64, Error>> + Send;
->>>>>>> b0e16200fd5be220e3fbdfdf161f92205821e722
 
     /// 查询并返回表中的所有记录。
     fn get_all(self) -> impl Future<Output = Result<Vec<T>, Error>> + Send;
@@ -95,11 +76,7 @@ pub trait DataOperations<'a, T> {
     /// 根据查询条件搜索并返回符合条件的记录。
     fn search<F>(self, query_conditions: F) -> impl Future<Output = Result<Vec<T>, Error>> + Send
     where
-<<<<<<< HEAD
         F: FnOnce(&mut Builder<'a>) -> Builder<'a> + Send;
-=======
-        F: FnOnce(&mut Builder) -> Builder + Send;
->>>>>>> b0e16200fd5be220e3fbdfdf161f92205821e722
 
     /// 根据查询条件分页搜索并返回符合条件的记录。
     fn search_paginated<F>(
@@ -109,7 +86,6 @@ pub trait DataOperations<'a, T> {
         page_size: i64,
     ) -> impl Future<Output = Result<PaginatedList<T>, Error>> + Send
     where
-<<<<<<< HEAD
         F: FnMut(&mut Builder<'a>) -> Builder<'a> + Send;
 
     /// 检查是否存在满足条件的记录。
@@ -127,24 +103,6 @@ pub trait DataOperations<'a, T> {
     fn agg<F>(&self, agg_function: AggregateFunction, column: &str, query_conditions: F) -> impl Future<Output = Result<f64, Error>> + Send
     where
         F: FnOnce(&mut Builder<'a>) -> Builder<'a> + Send;
-=======
-        F: FnMut(&mut Builder) -> Builder + Send;
-    /// 检查是否存在满足条件的记录。
-    fn exists<F>(self, query_conditions: F) -> impl Future<Output = Result<bool, Error>> + Send
-    where
-        F: FnOnce(&mut Builder) -> Builder + Send;
-
-    /// 检查某个字段的值是否唯一。
-    fn is_unique(self, column: &str, value: impl Into<DataKind> + Send) -> impl Future<Output = Result<bool, Error>> + Send;
-
-    /// 执行自定义的 SQL 语句。
-    fn execute(self, custom_builder: Builder) -> impl Future<Output = Result<u64, Error>> + Send;
-
-    /// 执行聚合函数查询，支持 COUNT, SUM, AVG 等。
-    fn aggregate<F>(&self, agg_function: AggregateFunction, column: &str, query_conditions: F) -> impl Future<Output = Result<f64, Error>> + Send
-    where
-        F: FnOnce(&mut Builder) -> Builder + Send;
->>>>>>> b0e16200fd5be220e3fbdfdf161f92205821e722
 
     /// 执行 JOIN 查询，支持 INNER JOIN, LEFT JOIN, RIGHT JOIN, FULL OUTER JOIN。
     fn join<F>(
@@ -155,11 +113,7 @@ pub trait DataOperations<'a, T> {
         query_conditions: F,
     ) -> impl Future<Output = Result<Vec<T>, Error>> + Send
     where
-<<<<<<< HEAD
         F: FnOnce(&mut Builder<'a>) -> Builder<'a> + Send;
-=======
-        F: FnOnce(&mut Builder) -> Builder + Send;
->>>>>>> b0e16200fd5be220e3fbdfdf161f92205821e722
 }
 
 /// 实现了 `DataOperations` 接口，提供了具体的数据库操作方法。
@@ -260,7 +214,6 @@ where
         }
     }
 
-<<<<<<< HEAD
     /// 按case_when 语句查询更新数据。
     async fn update_when<U, V>(
         self,
@@ -304,8 +257,6 @@ where
     }
 
 
-=======
->>>>>>> b0e16200fd5be220e3fbdfdf161f92205821e722
     /// 批量更新多条记录，并返回受影响的行数。
     async fn update_many<F>(self, entities: Vec<T>) -> Result<u64, Error> 
     {
@@ -367,13 +318,8 @@ where
     }
 
     /// 删除一定范围内的多条记录，并返回受影响的行数。
-<<<<<<< HEAD
     async fn delete_many(self, keys: Vec<impl Into<DataKind<'a>> + Send>) -> Result<u64, Error> {        
         let converted_keys: Vec<DataKind<'a>> = keys.into_iter().map(|k| k.into()).collect();
-=======
-    async fn delete_many(self, keys: Vec<impl Into<DataKind> + Send>) -> Result<u64, Error> {        
-        let converted_keys: Vec<DataKind> = keys.into_iter().map(|k| k.into()).collect();
->>>>>>> b0e16200fd5be220e3fbdfdf161f92205821e722
         let mut sb = Builder::delete(&self.table_name);
         sb = sb.filter(field(self.key_name).in_list(converted_keys));
         let result = query::execute(sb).await?;
@@ -381,21 +327,13 @@ where
     }
 
     /// 批量删除多条记录，并返回受影响的行数。
-<<<<<<< HEAD
     async fn batch_delete(self, keys: Vec<impl Into<DataKind<'a>> + Send>) -> Result<u64, Error> {
-=======
-    async fn batch_delete(self, keys: Vec<impl Into<DataKind> + Send>) -> Result<u64, Error> {
->>>>>>> b0e16200fd5be220e3fbdfdf161f92205821e722
         // 定义每批删除的大小
         const BATCH_SIZE: usize = 100;
         let mut total_rows_affected = 0;
     
         // 分批处理删除操作
-<<<<<<< HEAD
         for chunk in keys.into_iter().map(|k| k.into()).collect::<Vec<DataKind<'a>>>().chunks(BATCH_SIZE) {
-=======
-        for chunk in keys.into_iter().map(|k| k.into()).collect::<Vec<DataKind>>().chunks(BATCH_SIZE) {
->>>>>>> b0e16200fd5be220e3fbdfdf161f92205821e722
             let mut sb = Builder::delete(&self.table_name);
             sb = sb.filter(field(self.key_name).in_list(chunk.to_vec()));
             let result = query::execute(sb).await?;
@@ -475,11 +413,7 @@ where
     /// 根据查询条件搜索并返回符合条件的记录。
     async fn search<F>(self, query_conditions: F) -> Result<Vec<T>, Error>
     where
-<<<<<<< HEAD
         F: for<'b> FnOnce(&'b mut Builder<'a>) -> Builder<'a> + Send,
-=======
-        F: for<'b> FnOnce(&'b mut Builder) -> Builder + Send,
->>>>>>> b0e16200fd5be220e3fbdfdf161f92205821e722
     {
         let names = self.entity.field_names();
         let mut sb = Builder::select(&self.table_name, names);
@@ -497,11 +431,7 @@ where
         page_size: i64,
     ) -> Result<PaginatedList<T>, Error>
     where
-<<<<<<< HEAD
         F: for<'b> FnMut(&'b mut Builder<'a>) -> Builder<'a> + Send,
-=======
-        F: for<'b> FnMut(&'b mut Builder) -> Builder + Send,
->>>>>>> b0e16200fd5be220e3fbdfdf161f92205821e722
     {
         let names = self.entity.field_names();
         let mut sb = Builder::select(&self.table_name, names)
@@ -526,11 +456,7 @@ where
     /// 检查是否存在满足条件的记录。
     async fn exists<F>(self, query_conditions: F) -> Result<bool, Error>
     where
-<<<<<<< HEAD
         F: FnOnce(&mut Builder<'a>) -> Builder<'a> + Send,
-=======
-        F: FnOnce(&mut Builder) -> Builder + Send,
->>>>>>> b0e16200fd5be220e3fbdfdf161f92205821e722
     {
         let mut sb = Builder::select(&self.table_name, &["1"])
             .limit(1);
@@ -541,11 +467,7 @@ where
     }
 
     /// 检查某个字段的值是否唯一。
-<<<<<<< HEAD
     async fn is_unique(self, column: &str, value: impl Into<DataKind<'a>> + Send) -> Result<bool, Error> {
-=======
-    async fn is_unique(self, column: &str, value: impl Into<DataKind> + Send) -> Result<bool, Error> {
->>>>>>> b0e16200fd5be220e3fbdfdf161f92205821e722
         let value = value.into();
         let sb = Builder::select(&self.table_name, &["1"])
             .filter(field(column).eq(value))
@@ -556,29 +478,17 @@ where
     }
 
     /// 执行自定义的 SQL 语句。
-<<<<<<< HEAD
     async fn execute(self, custom_builder: Builder<'a>) -> Result<u64, Error> {
-=======
-    async fn execute(self, custom_builder: Builder) -> Result<u64, Error> {
->>>>>>> b0e16200fd5be220e3fbdfdf161f92205821e722
         let result = query::execute(custom_builder).await?;
         Ok(result.rows_affected())
     }
 
     /// 执行聚合函数查询，支持 COUNT, SUM, AVG 等。
-<<<<<<< HEAD
     async fn agg<F>(&self, agg_function: AggregateFunction, column: &str, query_conditions: F) -> Result<f64, Error>
     where
         F: FnOnce(&mut Builder<'a>) -> Builder<'a> + Send,
     {
         let mut sb = Builder::agg(self.table_name, agg_function, column);
-=======
-    async fn aggregate<F>(&self, agg_function: AggregateFunction, column: &str, query_conditions: F) -> Result<f64, Error>
-    where
-        F: FnOnce(&mut Builder) -> Builder + Send,
-    {
-        let mut sb = Builder::aggregate(self.table_name, agg_function, column);
->>>>>>> b0e16200fd5be220e3fbdfdf161f92205821e722
 
         // 应用查询条件
         sb = query_conditions(&mut sb);
@@ -600,11 +510,7 @@ where
         query_conditions: F,
     ) -> Result<Vec<T>, Error>
     where
-<<<<<<< HEAD
         F: FnOnce(&mut Builder<'a>) -> Builder<'a> + Send,
-=======
-        F: FnOnce(&mut Builder) -> Builder + Send,
->>>>>>> b0e16200fd5be220e3fbdfdf161f92205821e722
     {
         let mut sb = Builder::select(self.table_name, &self.entity.field_names())
             .join(join_type, table, condition);
@@ -621,10 +527,6 @@ where
 }
 
 /// 分页信息结构体，用于存储分页查询的结果。
-<<<<<<< HEAD
-=======
-#[allow(dead_code)]
->>>>>>> b0e16200fd5be220e3fbdfdf161f92205821e722
 #[derive(Debug)]
 pub struct PaginatedList<T> {
     /// 查询结果的记录列表。

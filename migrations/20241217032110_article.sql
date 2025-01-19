@@ -3,7 +3,6 @@ CREATE TABLE "article" (
   "a_class" TEXT,
   "a_content" TEXT
 );
-<<<<<<< HEAD
 
 /* 
 mysql:
@@ -15,5 +14,4 @@ CREATE TABLE `article` (
   PRIMARY KEY (`a_id`)
 ); 
 */
-=======
->>>>>>> b0e16200fd5be220e3fbdfdf161f92205821e722
+

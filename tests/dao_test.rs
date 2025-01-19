@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 
 use kitx::{
   //sqlite::connection::init_db_pool, 
@@ -19,22 +18,6 @@ async fn insert() {
     
     let class = "关于我们";  
     let content= "真测试4444";
-=======
-use kitx::{
-  sqlite::connection::init_db_pool, 
-  sqlite::operations::DataOperations
-};
-
-mod article;
-use crate::article::ArticleService;
-
-/* #[tokio::test]
-async fn insert() {
-    init_db_pool("sqlite:./my.db").await.unwrap();
-    
-    let class = "关于我们";  
-    let content= "真测试111";
->>>>>>> b0e16200fd5be220e3fbdfdf161f92205821e722
 
     let result = ArticleService::by_fields(class, content).insert().await;
 
@@ -51,7 +34,6 @@ async fn insert() {
     //assert!(false);
 } */
 
-<<<<<<< HEAD
 
 #[tokio::test]
 async fn update() {
@@ -62,17 +44,6 @@ async fn update() {
       a_id: 2,
       a_class: Some("关于我们".to_string()),
       a_content: Some("测试修改内容".to_string()),
-=======
-/* 
-#[tokio::test]
-async fn update() {
-    init_db_pool("sqlite:./my.db").await.unwrap();
-
-    let article = Article {
-      a_id: 20,
-      a_class: Some("关于我们".to_string()),
-      a_content: Some("真测试222".to_string()),
->>>>>>> b0e16200fd5be220e3fbdfdf161f92205821e722
     };
     let result = ArticleService::as_ops(article).update(true).await;
 
@@ -87,11 +58,7 @@ async fn update() {
         }
     }
     //assert!(false);
-<<<<<<< HEAD
 }
-=======
-} */
->>>>>>> b0e16200fd5be220e3fbdfdf161f92205821e722
 
 /* 
 #[tokio::test]
@@ -185,11 +152,7 @@ async fn get_by_key() {
     //assert!(false);
 } */
 
-<<<<<<< HEAD
 /* #[tokio::test]
-=======
-#[tokio::test]
->>>>>>> b0e16200fd5be220e3fbdfdf161f92205821e722
 async fn get_top() {
     init_db_pool("sqlite:./my.db").await.unwrap();
 
@@ -209,7 +172,4 @@ async fn get_top() {
     }
     //assert!(false);
 }
-<<<<<<< HEAD
  */
-=======
->>>>>>> b0e16200fd5be220e3fbdfdf161f92205821e722

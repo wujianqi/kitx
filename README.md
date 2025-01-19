@@ -1,6 +1,5 @@
 ## 基于Sqlx的数据库轻封装
 
-<<<<<<< HEAD
 暂只支持Sqlite、MySql。
 
 **内置19个数据库操作方法**  
@@ -10,17 +9,6 @@ insert, insert_many, update, update_when, update_many, delete, delete_many, batc
 
 *查询操作：*  
 get_all, get_by_key, get_top, get_list_paginated, search, search_paginated，exists，is_unique，agg，join
-=======
-暂只实现基于Sqlite的操作。  
-
-**内置18个数据库操作方法**  
-
-*增删改操作（基于事务）：*  
-insert, insert_many, update, update_many, delete, delete_many, batch_delete, execute,  
-
-*查询操作：*  
-get_all, get_by_key, get_top, get_list_paginated, search, search_paginated，exists，is_unique，aggregate，join
->>>>>>> b0e16200fd5be220e3fbdfdf161f92205821e722
 
 ---------------------
 
@@ -67,11 +55,7 @@ async fn update() {
 
 ```toml
 [dependencies]
-<<<<<<< HEAD
 kitx = "0.0.3"
-=======
-kitx = "0.0.2"
->>>>>>> b0e16200fd5be220e3fbdfdf161f92205821e722
 
 ```
 
