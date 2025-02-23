@@ -1,55 +1,62 @@
+use kitx::common::builder::BuilderTrait;
+use kitx::common::operations::OperationsTrait;
+//use kitx::sqlite::sql::{field, QueryBuilder, QueryCondition};
+use kitx::mysql::sql::{field, QueryBuilder, QueryCondition};
 
 use kitx::{
-  //sqlite::connection::init_db_pool, 
-  //sqlite::operations::DataOperations
-  mysql::connection::init_db_pool, 
-  mysql::operations::DataOperations
+  //sqlite::connection::init_db_pool,
+  mysql::connection::init_db_pool
 };
 
 mod article;
 use article::Article;
 use article::ArticleService;
 
-/* 
+async fn setup_db_pool() {
+  //init_db_pool("sqlite:./my.db").await.unwrap();
+  init_db_pool("mysql://root:@localhost:3306/kitxtest?charset=utf8mb4").await.unwrap();
+}
+
 #[tokio::test]
 async fn insert() {
-    //init_db_pool("sqlite:./my.db").await.unwrap();
-    init_db_pool("mysql://username:password@localhost/database_name").await.unwrap();
-    
-    let class = "关于我们";  
-    let content= "真测试4444";
+    setup_db_pool().await;
 
-    let result = ArticleService::by_fields(class, content).insert().await;
+    let article = Article {
+      a_class: Some("其他2".to_string()),
+      a_content: Some("真测试test".to_string()),
+      ..Default::default()
+    };
+    let ase = ArticleService::new();
+    let result = ase.insert_one(article).await;
 
     match result {
-        Ok(id) => {
-          println!("插入成功，ID: {}", id);
+        Ok(ret) => {
+          dbg!(ret);
           assert!(true);
         },
-        Err(e) =>{
+        Err(e) =>{          
           eprintln!("插入失败: {:?}", e);
           assert!(false);
         }
     }
-    //assert!(false);
-} */
+}
 
 
 #[tokio::test]
 async fn update() {
-    //init_db_pool("sqlite:./my.db").await.unwrap();
-    init_db_pool("mysql://username:password@localhost/database_name").await.unwrap();
+    setup_db_pool().await;
 
     let article = Article {
-      a_id: 2,
+      a_id: 1,
       a_class: Some("关于我们".to_string()),
-      a_content: Some("测试修改内容".to_string()),
+      a_content: Some("测试修改内容33".to_string()),
     };
-    let result = ArticleService::as_ops(article).update(true).await;
+    let ase = ArticleService::new();
+    let result = ase.update_one(article, false).await;
 
     match result {
-        Ok(num) => {
-          println!("更新成功，数量: {}", num);
+        Ok(ret) => {
+          dbg!(ret);
           assert!(true);
         },
         Err(e) =>{
@@ -57,21 +64,18 @@ async fn update() {
           assert!(false);
         }
     }
-    //assert!(false);
 }
 
-/* 
 #[tokio::test]
 async fn delete() {
-    init_db_pool("sqlite:./my.db").await.unwrap();
+    setup_db_pool().await;
 
-    let result = ArticleService::by_key(26)
-      .delete()
-      .await;
+    let ase = ArticleService::new();
+    let result = ase.delete_one(5).await;
 
     match result {
-        Ok(num) => {
-          println!("删除成功，数量: {}", num);
+        Ok(ret) => {
+          dbg!(ret);
           assert!(true);
         },
         Err(e) =>{
@@ -79,21 +83,19 @@ async fn delete() {
           assert!(false);
         }
     }
-    //assert!(false);
-} */
+}
 
-/* 
+
 #[tokio::test]
 async fn batch_delete() {
-    init_db_pool("sqlite:./my.db").await.unwrap();
+    setup_db_pool().await;
 
-    let result = ArticleService::by_default()
-      .delete_many(vec![26, 27, 28])
-      .await;
+    let ase = ArticleService::new();
+    let result = ase.delete_many(vec![2, 3, 6]).await;
 
     match result {
-        Ok(num) => {
-          println!("删除成功，数量: {}", num);
+        Ok(ret) => {
+          dbg!(ret);
           assert!(true);
         },
         Err(e) =>{
@@ -101,24 +103,25 @@ async fn batch_delete() {
           assert!(false);
         }
     }
-    //assert!(false);
-} */
+}
 
-/* 
+
 #[tokio::test]
 async fn get_list() {
-    init_db_pool("sqlite:./my.db").await.unwrap();
+    setup_db_pool().await;
 
-    let result = ArticleService::by_default()
-      .get_list_paginated(2, 10)      
-      .await;
+    let ase = ArticleService::new();
+    /* let result = ase.fetch_paginated(1, 10, QueryCondition::empty()).await;
+ */
+    let qf = QueryCondition::from(|builder: &mut QueryBuilder| {
+      builder.filter(field("a_id").gt(1));
+    });
+    //let result = ase.fetch_paginated(1, 10, qf).await;
+    let result = ase.fetch_by_cursor(2, qf).await;
 
     match result {
-        Ok(entities) => {
-          for entity in entities.items {
-            println!("数据， {}", entity.a_class.unwrap_or_else(|| "null".to_string()));
-          }
-          //println!("数据列表， {}", entities.items.len());
+        Ok(ret) => {
+          dbg!(ret);
           assert!(true);
         },
         Err(e) =>{
@@ -126,43 +129,61 @@ async fn get_list() {
           assert!(false);
         }
     }
-    //assert!(false);
-} */
+}
 
-/* 
+
 #[tokio::test]
 async fn get_by_key() {
-    init_db_pool("sqlite:./my.db").await.unwrap();
+    setup_db_pool().await;
 
-    let result = ArticleService::by_key(12).get_by_key().await;
+    let ase = ArticleService::new();
+    let result = ase.fetch_by_key(1).await;
     match result {
-        Ok(entity) => {
-          /* println!("获取单条数据: {}, {}",  
-            entity.a_class.unwrap_or_else(|| "无分类".to_string()),
-            entity.a_content.unwrap_or_else(|| "无内容".to_string())
-          ); */
-          dbg!(entity);
-          assert!(false);
+        Ok(ret) => {
+          dbg!(ret);
+          assert!(true);
         },
         Err(e) =>{
           eprintln!("获取失败: {:?}", e);
           assert!(false);
         }
     }
-    //assert!(false);
-} */
+}
 
-/* #[tokio::test]
+#[tokio::test]
+async fn get_by_field() {
+    setup_db_pool().await;
+
+    let ase = ArticleService::new();
+    let qf = QueryCondition::from(|builder: &mut QueryBuilder| {
+      builder.filter(field("a_class").eq("其他1"));
+    });
+    let result = ase.fetch_one(qf).await;
+    match result {
+        Ok(ret) => {
+          dbg!(ret);
+          assert!(true);
+        },
+        Err(e) =>{
+          eprintln!("获取失败: {:?}", e);
+          assert!(false);
+        }
+    }
+}
+
+#[tokio::test]
 async fn get_top() {
-    init_db_pool("sqlite:./my.db").await.unwrap();
-
-    let result = ArticleService::by_default()
-      .get_top(5).await;
+    setup_db_pool().await;
+    
+    let ase = ArticleService::new();
+    let qf = QueryCondition::from(|builder: &mut QueryBuilder| {
+      builder.order_by("a_id", false).limit_offset(5, None);
+    });
+    let result = ase.fetch_all(qf).await;
 
     match result {
-        Ok(entities) => {
-          println!("查询成功，num: {}", entities.len());
-          dbg!(entities);
+        Ok(ret) => {
+          dbg!(ret);
           assert!(true);
         },
         Err(e) =>{
@@ -170,6 +191,4 @@ async fn get_top() {
           assert!(false);
         }
     }
-    //assert!(false);
 }
- */

@@ -1,6 +1,6 @@
 use sqlx::{Pool, MySql};
 use sqlx::{pool::PoolOptions, Error, MySqlPool};
-use sqlx::mysql::MySqlConnectOptions;
+use sqlx::mysql::{MySqlConnectOptions, MySqlSslMode};
 use std::str::FromStr;
 use std::sync::Arc;
 use tokio::sync::OnceCell;
@@ -21,9 +21,10 @@ pub async fn init_db_pool_custom(pool: Pool<MySql>) -> Result<&'static MySqlPool
 
 /// 按数据库地址初始化数据库连接池
 pub async fn init_db_pool(database_url: &str) -> Result<&'static MySqlPool, Error> {
+    println!("get_db_pool");
     // 配置 MySQL 连接选项
     let connect_options = MySqlConnectOptions::from_str(database_url)?
-        .ssl_mode(sqlx::mysql::MySqlSslMode::Disabled); // 根据需要配置 SSL 模式
+        .ssl_mode(MySqlSslMode::Disabled); // 根据需要配置 SSL 模式
 
     // 创建连接池
     let pool = PoolOptions::new()

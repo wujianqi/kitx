@@ -34,11 +34,11 @@ pub async fn init_db_pool(database_url: &str) -> Result<&SqlitePool, Error> {
         .idle_timeout(Duration::from_secs(30))
         .connect_with(connect_options)
         .await?;
-
+    
     init_db_pool_custom(pool).await
 }
 
 /// 获取数据库连接池的引用。
-pub fn get_db_pool() -> &'static Arc<SqlitePool> {
+pub fn get_db_pool() -> &'static SqlitePool {
     DB_POOL.get().expect("Database pool not initialized")
 }

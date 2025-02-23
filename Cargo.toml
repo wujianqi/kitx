@@ -1,6 +1,6 @@
 [package]
 name = "kitx"
-version = "0.0.3"
+version = "0.0.4"
 edition = "2021"
 authors = ["Wu Jianqi <janchie@163.com>"]
 
@@ -16,7 +16,8 @@ license-file = "LICENSE"
 chrono = { version = "0.4.38", features = ["serde"] }
 serde = { version = "1.0.215", features = ["derive"] }
 serde_json = "1.0.133"
-sqlx = { version = "0.8.2", features = ["runtime-tokio-native-tls", "chrono", "json", "sqlite", "mysql"]}
+sqlx = { version = "0.8.2", features = ["runtime-tokio-native-tls", "chrono", "json", "sqlite", "mysql", "rust_decimal"]}
 tokio = { version = "1.42.0", features = ["full"]}
 field_access = "0.1.11"
-uuid = "1.12.0"
+uuid = { version = "1.12.0", features = ["serde", "v4"] }
+rust_decimal = "1.36.0"
