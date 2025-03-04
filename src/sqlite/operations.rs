@@ -11,18 +11,18 @@ use super::kind::{is_empty, value_convert, DataKind};
 use super::query::SqliteQuery;
 use super::sql::{field, QueryBuilder, QueryCondition};
 
-/// 数据操作结构体，用于对数据库中的实体进行增删改查等操作。
+/// Data operations structure for performing CRUD operations on entities in the database.
 pub struct Operations<'a, T>
 where
     T: for<'r> FromRow<'r, SqliteRow> + FieldAccess + Unpin + Send,
 {
-    /// 表名，表示实体对应的数据库表。
+    /// Table name representing the database table for the entity.
     table_name: &'a str,
-    /// 主键字段名，用于唯一标识表中的记录。
-    primary_key: &'a str,
-    /// 软删除字段名和过滤标志，用于标记记录是否已删除及是否过滤。
+    /// Primary key field name used to uniquely identify records in the table, and whether it generates a default value.
+    primary_key: (&'a str, bool),
+    /// Soft delete field name and filter flag used to mark records as deleted and whether to filter them.
     soft_delete_info: Option<(&'a str, bool)>,
-    /// 幻影数据，用于编译时类型检查。
+    /// Phantom data for compile-time type checking.
     _phantom: PhantomData<&'a T>,
 
     query: SqliteQuery,
@@ -32,11 +32,17 @@ impl<'a, T> OperationsTrait<'a, T, Sqlite> for Operations<'a, T>
 where
     T: for<'r> FromRow<'r, SqliteRow> + FieldAccess + Unpin + Send + Sync + Default,
 {
-        
+    
     type Query = QueryCondition<'a>;    
     type DataKind = DataKind<'a>;
     type QueryResult = SqliteQueryResult;
-    fn new(table_name: &'a str, primary_key: &'a str, soft_delete_info: Option<(&'a str, bool)>) -> Self {
+    fn new(table_name: &'a str, primary_key: (&'a str, bool), soft_delete_info: Option<(&'a str, bool)>) -> Self {
+        let primary_key = if primary_key.0.is_empty() {
+            (primary_key.0, false)
+        } else {
+            primary_key
+        };
+        
         Operations {
             table_name,
             primary_key,
@@ -51,7 +57,7 @@ where
         let mut cols_values = Vec::new();
 
         for (name, field) in entity.fields() {
-            if name != self.primary_key {
+            if name != self.primary_key.0 || !self.primary_key.1 {
                 cols_names.push(name);
                 let value = value_convert(field.as_any());
                 cols_values.push(value);
@@ -69,7 +75,7 @@ where
         for entity in entities {
             let mut cols_values = Vec::new();
             for (name, field) in entity.fields() {
-                if name != self.primary_key {
+                if name != self.primary_key.0 || !self.primary_key.1 {
                     if cols_names.is_empty() {
                         cols_names.push(name);
                     }
@@ -87,10 +93,10 @@ where
     async fn update_one(&self, entity: T, override_empty: bool) -> Result<Self::QueryResult, Error> {
         let mut cols_names = Vec::new();
         let mut cols_values = Vec::new();
-    
-        // 第一部分：收集更新字段
+
+        // Part 1: Collect fields to update
         for (name, field) in entity.fields() {
-            if name != self.primary_key {
+            if name != self.primary_key.0 {
                 let value = value_convert(field.as_any());
                 if !override_empty && is_empty(&value) {
                     continue;
@@ -99,17 +105,17 @@ where
                 cols_values.push(value);
             }
         }
-    
-        // 第二部分：优化后的主键获取
+
+        // Part 2: Optimized primary key retrieval
         let primary_key_value = entity.fields()
-            .find(|(name, _)| *name == self.primary_key)
+            .find(|(name, _)| *name == self.primary_key.0)
             .map(|(_, field)| value_convert(field.as_any()))
             .ok_or(Error::RowNotFound)?;
-    
-        // 第三部分：构建查询
+
+        // Part 3: Build query
         let mut query = QueryBuilder::update(self.table_name, &cols_names, cols_values);
-        query.filter(field(self.primary_key).eq(primary_key_value.clone()));
-    
+        query.filter(field(self.primary_key.0).eq(primary_key_value.clone()));
+
         self.query.execute(query).await
     }
 
@@ -120,7 +126,7 @@ where
             let mut cols_values = Vec::new();
 
             for (name, field) in entity.fields() {
-                if name != self.primary_key {
+                if name != self.primary_key.0 {
                     let value = value_convert(field.as_any());
                     if override_empty && is_empty(&value) {
                         continue;
@@ -133,7 +139,7 @@ where
             let primary_key_value = {
                 let mut primary_key_value = None;
                 for (name, field) in entity.fields() {
-                    if name == self.primary_key {
+                    if name == self.primary_key.0 {
                         primary_key_value = Some(value_convert(field.as_any()));
                         break;
                     }
@@ -142,7 +148,7 @@ where
             };
 
             let mut query = QueryBuilder::update(self.table_name, &cols_names, cols_values);
-            query.filter(field(self.primary_key).eq(primary_key_value));
+            query.filter(field(self.primary_key.0).eq(primary_key_value));
             let result = self.query.execute(query).await?;
             results.push(result);
         }
@@ -154,11 +160,11 @@ where
 
         if let Some((column, _)) = self.soft_delete_info {
             let mut query = QueryBuilder::update(self.table_name, &[column], vec![DataKind::from(true)]);
-            query.filter(field(self.primary_key).eq(key));
+            query.filter(field(self.primary_key.0).eq(key));
             self.query.execute(query).await
         } else {
             let mut query = QueryBuilder::delete(self.table_name);
-            query.filter(field(self.primary_key).eq(key));
+            query.filter(field(self.primary_key.0).eq(key));
             self.query.execute(query).await
         }
     }
@@ -167,11 +173,11 @@ where
         let keys: Vec<DataKind<'a>> = keys.into_iter().map(|k| k.into()).collect();
         if let Some((column, _)) = self.soft_delete_info {
             let mut query = QueryBuilder::update(self.table_name, &[column], vec![DataKind::from(true)]);
-            query.filter(field(self.primary_key).in_list(keys));
+            query.filter(field(self.primary_key.0).r#in(keys));
             self.query.execute(query).await
         } else {
             let mut query = QueryBuilder::delete(self.table_name);
-            query.filter(field(self.primary_key).in_list(keys));
+            query.filter(field(self.primary_key.0).r#in(keys));
             self.query.execute(query).await
         }
     }
@@ -179,14 +185,14 @@ where
     async fn restore_one(&self, key: impl Into<DataKind<'a>> + Send) -> Result<Self::QueryResult, Error> {
         let key = key.into();
         let mut query = QueryBuilder::update(self.table_name, &[self.soft_delete_info.as_ref().unwrap().0], vec![DataKind::from(false)]);
-        query.filter(field(self.primary_key).eq(key));
+        query.filter(field(self.primary_key.0).eq(key));
         self.query.execute(query).await
     }
 
     async fn restore_many(&self, keys: Vec<impl Into<DataKind<'a>> + Send>) -> Result<Self::QueryResult, Error> {
         let keys: Vec<DataKind<'a>> = keys.into_iter().map(|k| k.into()).collect();
         let mut query = QueryBuilder::update(self.table_name, &[self.soft_delete_info.as_ref().unwrap().0], vec![DataKind::from(false)]);
-        query.filter(field(self.primary_key).in_list(keys));
+        query.filter(field(self.primary_key.0).r#in(keys));
         self.query.execute(query).await
     }
 
@@ -201,7 +207,7 @@ where
     async fn fetch_by_key(&self, id: impl Into<DataKind<'a>> + Send) -> Result<Option<T>, Error> {
         let id = id.into();
         let mut builder = QueryBuilder::select(self.table_name, &["*"]);
-        builder.filter(field(self.primary_key).eq(id));
+        builder.filter(field(self.primary_key.0).eq(id));
         self.apply_soft_delete_filter(&mut builder);
         self.query.fetch_optional::<T>(builder).await
     }
@@ -237,7 +243,7 @@ where
         builder.limit_offset(limit,None);
         let data = self.query.fetch_all::<T>(builder).await?;
 
-        // 获取最后一个记录的游标值
+        // Get the cursor value of the last record
         let next_cursor = data.last().cloned();
 
         Ok(CursorPaginatedResult {
@@ -269,7 +275,7 @@ impl<'a, T> Operations<'a, T>
 where
     T: for<'r> FromRow<'r, SqliteRow> + FieldAccess + Unpin + Send + Sync + Default,
 {
-    // 应用软删除内容过滤
+    // Apply soft delete filter to the query builder
     fn apply_soft_delete_filter(&self, builder: &mut QueryBuilder<'a>) {
         if let Some((soft_delete_field, filter_soft_deleted)) = &self.soft_delete_info {
             if *filter_soft_deleted {

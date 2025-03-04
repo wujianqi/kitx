@@ -2,18 +2,19 @@ use crate::common::builder::BuilderCondition;
 use crate::sql::{builder::Builder, filter::FieldValue};
 use super::kind::DataKind;
 
-/// Sqlite 专用的 SQL 构建器。
+/// SQLite-specific SQL builder.
 pub type QueryBuilder<'a> = Builder<DataKind<'a>>;
+
+/// SQLite-specific SQL query condition.
 pub type QueryCondition<'a> = BuilderCondition<'a, QueryBuilder<'a>>;
 
-/// 创建一个用于获取字段值的对象。
+/// Creates an object to get the field value.
 ///
-/// # 参数
-/// - `name`: 字段名。
+/// # Parameters
+/// - `name`: Field name.
 ///
-/// # 返回
-/// - `FieldValue`: 用于获取字段值的对象。
+/// # Returns
+/// - `FieldValue`: Object to get the field value.
 pub fn field<'a>(name: &'a str) -> FieldValue<'a, DataKind<'a>> {
     FieldValue::get(name)
 }
-

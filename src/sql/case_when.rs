@@ -2,25 +2,25 @@ use std::marker::PhantomData;
 use std::fmt::Debug;
 use super::filter::FilterClause;
 
-/// CASE WHEN 子句构建器，用于创建 CASE WHEN 条件。
+/// CASE WHEN clause builder, used to create CASE WHEN conditions.
 #[derive(Debug, Clone)]
 pub struct WhenClause<'a, T: Debug + Clone> {
-    /// 存储多个 CASE WHEN 子句。
+    /// Stores multiple CASE WHEN clauses.
     cases: Vec<(String, Vec<T>)>,
-    /// 当前正在构建的 CASE WHEN 子句。
+    /// Currently building CASE WHEN clause.
     current_case: Option<(String, Vec<T>)>,
-    /// 生命周期标记，用于引用外部字符串。
+    /// Lifetime marker, used to reference external strings.
     _marker: PhantomData<&'a str>,
 }
 
 impl<'a, T: Debug + Clone> WhenClause<'a, T> {
-    /// 开始一个新的 CASE WHEN 子句或初始化一个新的 WhenClause 实例。
+    /// Starts a new CASE WHEN clause or initializes a new WhenClause instance.
     ///
-    /// 如果当前已经有一个 CASE WHEN 子句正在构建，则将其保存到 `cases` 中，并开始一个新的子句。
-    /// 否则，初始化一个新的 WhenClause 实例。
+    /// If there is already a CASE WHEN clause being built, it is saved to `cases` and a new clause is started.
+    /// Otherwise, initializes a new WhenClause instance.
     ///
-    /// # 返回
-    /// - `WhenClause`: 更新后的 WhenClause 实例。
+    /// # Returns
+    /// - `WhenClause`: Updated WhenClause instance.
     pub fn case() -> Self {
         WhenClause {
             cases: Vec::new(),
@@ -29,14 +29,14 @@ impl<'a, T: Debug + Clone> WhenClause<'a, T> {
         }
     }
 
-    /// 添加 WHEN 子句到当前的 CASE WHEN 子句中。
+    /// Adds a WHEN clause to the current CASE WHEN clause.
     ///
-    /// # 参数
-    /// - `condition`: WHEN 条件。
-    /// - `result`: 条件为真时返回的值。
+    /// # Parameters
+    /// - `condition`: WHEN condition.
+    /// - `result`: Value returned when the condition is true.
     ///
-    /// # 返回
-    /// - `WhenClause`: 更新后的 WhenClause 实例。
+    /// # Returns
+    /// - `WhenClause`: Updated WhenClause instance.
     pub fn when(mut self, condition: FilterClause<T>, result: &'a str) -> Self {
         if let Some((ref mut case_when_clause, ref mut values)) = self.current_case {
             let (clause, condition_values) = condition.build();
@@ -49,13 +49,13 @@ impl<'a, T: Debug + Clone> WhenClause<'a, T> {
         self
     }
 
-    /// 添加 ELSE 子句到当前的 CASE WHEN 子句中。
+    /// Adds an ELSE clause to the current CASE WHEN clause.
     ///
-    /// # 参数
-    /// - `result`: 所有条件都不满足时返回的值。
+    /// # Parameters
+    /// - `result`: Value returned when all conditions are not met.
     ///
-    /// # 返回
-    /// - `WhenClause`: 更新后的 WhenClause 实例。
+    /// # Returns
+    /// - `WhenClause`: Updated WhenClause instance.
     pub fn else_result(mut self, result: &'a str) -> Self {
         if let Some((ref mut case_when_clause, _)) = self.current_case {
             case_when_clause.push_str(" ELSE ");
@@ -64,17 +64,17 @@ impl<'a, T: Debug + Clone> WhenClause<'a, T> {
         self
     }
 
-    /// 构建所有的 CASE WHEN 子句。
+    /// Builds all CASE WHEN clauses.
     ///
-    /// # 返回
-    /// - `(String, Vec<T>)`: 拼接后的 CASE WHEN 子句字符串和参数值列表。
+    /// # Returns
+    /// - `(String, Vec<T>)`: Concatenated CASE WHEN clause string and parameter values list.
     pub fn build(mut self) -> (String, Vec<T>) {
         if let Some(current_case) = self.current_case.take() {
             self.cases.push(current_case);
         }
 
-        // 预先分配足够的容量
-        let mut sql = String::with_capacity(self.cases.len() * 64); // 根据实际情况调整容量
+        // Pre-allocate sufficient capacity
+        let mut sql = String::with_capacity(self.cases.len() * 64); // Adjust capacity as needed
         let mut values = Vec::new();
 
         for (case_when_clause, condition_values) in self.cases {
@@ -83,7 +83,7 @@ impl<'a, T: Debug + Clone> WhenClause<'a, T> {
             values.extend(condition_values);
         }
 
-        // 移除最后一个多余的逗号和空格
+        // Remove the last extra comma and space
         if sql.ends_with(", ") {
             sql.truncate(sql.len() - 2);
         }

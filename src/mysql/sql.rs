@@ -2,35 +2,36 @@ use crate::common::builder::{BuilderCondition, BuilderTrait};
 use crate::sql::{builder::Builder, filter::FieldValue};
 use super::kind::DataKind;
 
-/// MySQL 专用的 SQL 构建器。
+/// MySQL-specific SQL builder.
 pub type QueryBuilder<'a> = Builder<DataKind<'a>>;
+/// MySQL-specific SQL condition builder.
 pub type QueryCondition<'a> = BuilderCondition<'a, QueryBuilder<'a>>;
 
-/// 创建一个用于获取字段值的对象。
+/// Creates an object for retrieving field values.
 ///
-/// # 参数
-/// - `name`: 字段名。
+/// # Parameters
+/// - `name`: Field name.
 ///
-/// # 返回
-/// - `FieldValue`: 用于获取字段值的对象。
+/// # Returns
+/// - `FieldValue`: Object for retrieving field values.
 pub fn field<'a>(name: &'a str) -> FieldValue<'a, DataKind<'a>> {
     FieldValue::get(name)
 }
 
-// MySQL 特定方法
+// MySQL-specific methods
 impl<'a> QueryBuilder<'a> {
-    /// 添加 ON DUPLICATE KEY UPDATE 子句。
+    /// Adds an ON DUPLICATE KEY UPDATE clause.
     pub fn on_duplicate_key_update(
         &mut self,
         table: &str,
         columns: &[&str],
         values: Vec<Vec<DataKind<'a>>>,
         update_columns: &[&str],
-    ) -> &mut Self { // 返回 &mut Self
-        // 复用 insert_into 的逻辑生成基础 SQL 和参数
+    ) -> &mut Self { // Return &mut Self
+        // Reuse the logic from insert_into to generate the base SQL and parameters
         let mut builder = Builder::insert_into(table, columns, values.clone());
 
-        // 添加 ON DUPLICATE KEY UPDATE 子句
+        // Create the ON DUPLICATE KEY UPDATE clause
         let update_clause = update_columns
             .iter()
             .map(|col| format!("{} = ?", col))
@@ -38,7 +39,7 @@ impl<'a> QueryBuilder<'a> {
             .join(", ");
         let sqlstr = format!(" ON DUPLICATE KEY UPDATE {}", update_clause);
 
-        // 将需要更新的值再次添加到 cols_values 中
+        // Add the values to be updated to cols_values
         let mut vals = Vec::new();
         for row in &values {
             for col in update_columns {
@@ -48,10 +49,10 @@ impl<'a> QueryBuilder<'a> {
             }
         }
 
-        // 将 SQL 和参数添加到 builder 中
+        // Add the SQL and parameters to the builder
         builder.append(&sqlstr, Some(vals));
 
-        // 返回当前构建器的可变引用
+        // Return a mutable reference to the current builder
         self
     }
 }

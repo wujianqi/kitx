@@ -2,7 +2,7 @@ use crate::common::builder::BuilderTrait;
 use super::{agg::Agg, case_when::WhenClause, filter::FilterClause, join::Join};
 use std::fmt::Debug;
 
-/// SQL 构建器，用于逐步构建最终的 SQL 语句。
+/// SQL builder, used to build the final SQL statement step by step.
 #[derive(Debug, Clone)]
 pub struct Builder <T: Debug + Clone> {
     sql: String,
@@ -30,7 +30,7 @@ impl<T: Debug + Clone> BuilderTrait<T> for Builder<T> {
     }
 
     fn select(table: impl Into<String>, columns: &[&str]) -> Self {
-        let mut sql = String::with_capacity(256);
+        let mut sql = String::with_capacity(128);
         sql.push_str("SELECT ");
         if columns.is_empty() {
             sql.push('*');
@@ -43,7 +43,7 @@ impl<T: Debug + Clone> BuilderTrait<T> for Builder<T> {
     }
 
     fn insert_into(table: &str, columns: &[&str], values: Vec<Vec<T>>) -> Self {
-        let mut sql = String::with_capacity(256);
+        let mut sql = String::with_capacity(128);
         sql.push_str("INSERT INTO ");
         sql.push_str(table);
         sql.push_str(" ( ");
@@ -64,7 +64,7 @@ impl<T: Debug + Clone> BuilderTrait<T> for Builder<T> {
             cols_values.extend(row);
         }
 
-        // 移除最后一个多余的逗号和空格
+        // Remove the last extra comma and space
         if sql.ends_with(", ") {
             sql.truncate(sql.len() - 2);
         }
@@ -73,7 +73,7 @@ impl<T: Debug + Clone> BuilderTrait<T> for Builder<T> {
     }
 
     fn update(table: &str, columns: &[&str], values: Vec<T>) -> Self {
-        let mut sql = String::with_capacity(256);
+        let mut sql = String::with_capacity(128);
         sql.push_str("UPDATE ");
         sql.push_str(table);
         sql.push_str(" SET ");
@@ -112,16 +112,16 @@ impl<T: Debug + Clone> BuilderTrait<T> for Builder<T> {
     }
 
     fn order_by(&mut self, column: &str, asc: bool) -> &mut Self {
-        // 检查是否已经存在相同的列
+        // Check if the column already exists
         if let Some(index) = self
             .order_by_clauses
             .iter()
             .position(|(col, _)| col == column)
         {
-            // 如果存在，则覆盖
+            // If it exists, overwrite
             self.order_by_clauses[index] = (column.to_string(), asc);
         } else {
-            // 否则添加新的排序方式
+            // Otherwise, add a new sorting method
             self.order_by_clauses.push((column.to_string(), asc));
         }
 
@@ -178,7 +178,7 @@ impl<T: Debug + Clone> BuilderTrait<T> for Builder<T> {
 
         sql.push_str(&self.sql);
 
-        // 添加 WHERE 语句
+        // Add WHERE statement
         if !self.where_clauses.is_empty() {
             sql.push_str(" WHERE ");
 
@@ -194,7 +194,7 @@ impl<T: Debug + Clone> BuilderTrait<T> for Builder<T> {
             }
         }
 
-        // 添加 ORDER BY 语句
+        // Add ORDER BY statement
         if !self.order_by_clauses.is_empty() {
             sql.push_str(" ORDER BY ");
 
@@ -209,7 +209,7 @@ impl<T: Debug + Clone> BuilderTrait<T> for Builder<T> {
             }
         }
 
-        // 添加 LIMIT 和 OFFSET 语句
+        // Add LIMIT and OFFSET statement
         if let Some((limit, offset)) = self.limit_offset {
             sql.push_str(" LIMIT ");
             sql.push_str(&limit.to_string());
@@ -223,12 +223,12 @@ impl<T: Debug + Clone> BuilderTrait<T> for Builder<T> {
     }
 
     fn build_mut(&mut self) -> (String, Vec<T>) {
-        let mut sql = String::with_capacity(self.sql.len() + 256);
+        let mut sql = String::with_capacity(self.sql.len() + 128);
         let mut all_values = std::mem::take(&mut self.values);
 
         sql.push_str(&self.sql);
 
-        // 添加 WHERE 语句
+        // Add WHERE statement
         if !self.where_clauses.is_empty() {
             sql.push_str(" WHERE ");
 
@@ -244,7 +244,7 @@ impl<T: Debug + Clone> BuilderTrait<T> for Builder<T> {
             }
         }
 
-        // 添加 ORDER BY 语句
+        // Add ORDER BY statement
         if !self.order_by_clauses.is_empty() {
             sql.push_str(" ORDER BY ");
 
@@ -259,7 +259,7 @@ impl<T: Debug + Clone> BuilderTrait<T> for Builder<T> {
             }
         }
 
-        // 添加 LIMIT 和 OFFSET 语句
+        // Add LIMIT and OFFSET statement
         if let Some((limit, offset)) = self.limit_offset.take() {
             sql.push_str(" LIMIT ");
             sql.push_str(&limit.to_string());

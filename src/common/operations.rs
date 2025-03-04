@@ -11,79 +11,162 @@ where
     type DataKind;
     type QueryResult;
 
-    /// 创建一个新的 `Operations` 实例。
-    /// # 参数
-    /// * `table_name`: 表名。
-    /// * `primary_key`: 主键名。
-    /// * `soft_delete_info`: 软删除信息，包括软删除字段名（有即视为软删除）、查询语句是否启用软删除过滤。
+    /// Creates a new `Operations` instance.
     /// 
-    /// # 返回值
-    /// 返回一个新的 `Operations` 实例。
-    ///
-    fn new(table_name: &'a str, primary_key: &'a str, soft_delete_info: Option<(&'a str, bool)>) -> Self;
+    /// # Parameters
+    /// * `table_name`: The name of the table.
+    /// * `primary_key`: A tuple containing the name of the primary key column and a boolean indicating whether the primary key is auto-incrementing.
+    /// * `soft_delete_info`: A tuple containing the name of the soft-delete column and a boolean indicating whether the column is auto-incrementing.
+    fn new(table_name: &'a str, primary_key: (&'a str, bool), soft_delete_info: Option<(&'a str, bool)>) -> Self;
 
-    /// 插入一条记录到数据库中，并返回插入记录的主键值。
+    /// Inserts a single record into the database and returns the primary key value of the inserted record.
+    /// 
+    /// # Parameters
+    /// * `entity`: The entity to be inserted.
+    /// 
+    /// # Returns
+    /// Returns the primary key value of the inserted record.
     fn insert_one(&self, entity: T) -> impl Future<Output = Result<Self::QueryResult, Error>> + Send;
 
-    /// 插入多条记录到数据库中，并返回插入记录的主键值列表。
+    /// Inserts multiple records into the database and returns a list of primary key values of the inserted records.
+    /// 
+    /// # Parameters
+    /// * `entities`: A list of entities to be inserted.
+    /// 
+    /// # Returns
+    /// Returns a list of primary key values of the inserted records.
     fn insert_many(&self, entities: Vec<T>) -> impl Future<Output = Result<Self::QueryResult, Error>> + Send;
 
-    /// 更新一条记录，并返回受影响的行数。
+    /// Updates a single record and returns the number of affected rows.
+    /// 
+    /// # Parameters
+    /// * `entity`: The entity to be updated.
+    /// * `override_empty`: A boolean indicating whether to update fields with empty values.
+    /// 
+    /// # Returns
+    /// Returns the number of affected rows.
     fn update_one(&self, entity: T, override_empty: bool) -> impl Future<Output = Result<Self::QueryResult, Error>> + Send;
 
-    /// 更新多条记录，并返回受影响的行数。
+    /// Updates multiple records and returns a list of the number of affected rows.
+    /// 
+    /// # Parameters
+    /// * `entities`: A list of entities to be updated.
+    /// * `override_empty`: A boolean indicating whether to update fields with empty values.
+    /// 
+    /// # Returns
+    /// Returns a list of the number of affected rows.
     fn update_many(&self, entities: Vec<T>, override_empty: bool) -> impl Future<Output = Result<Vec<Self::QueryResult>, Error>> + Send;
 
-    /// 删除一条记录，并返回受影响的行数。
+    /// Deletes a single record and returns the number of affected rows.
+    /// 
+    /// # Parameters
+    /// * `key`: The primary key value of the record to be deleted.
+    /// 
+    /// # Returns
+    /// Returns the number of affected rows.
     fn delete_one(&self, key: impl Into<Self::DataKind> + Send) -> impl Future<Output = Result<Self::QueryResult, Error>> + Send;
 
-    /// 删除多条记录，并返回受影响的行数。
+    /// Deletes multiple records and returns the number of affected rows.
+    /// 
+    /// # Parameters
+    /// * `keys`: A list of primary key values of the records to be deleted.
+    /// 
+    /// # Returns
+    /// Returns the number of affected rows.
     fn delete_many(&self, keys: Vec<impl Into<Self::DataKind> + Send>) -> impl Future<Output = Result<Self::QueryResult, Error>> + Send;
 
-    /// 查询并返回表中的所有记录，支持条件查询。
+    /// Queries and returns all records in the table, supporting conditional queries.
+    /// 
+    /// # Parameters
+    /// * `query_condition`: A query condition structure.
+    /// 
+    /// # Returns
+    /// Returns a list of records.
     fn fetch_all(&self, query_condition: Self::Query) -> impl Future<Output = Result<Vec<T>, Error>> + Send;
 
-    /// 根据主键查询并返回一条记录。
+    /// Queries and returns a single record based on the primary key.
+    /// 
+    /// # Parameters
+    /// * `id`: The primary key value of the record to be queried.
+    /// 
+    /// # Returns
+    /// Returns a single record.
     fn fetch_by_key(&self, id: impl Into<Self::DataKind> + Send) -> impl Future<Output = Result<Option<T>, Error>> + Send;
 
-    /// 根据字段条件查询并返回一条记录。
+    /// Queries and returns a single record based on field conditions.
+    /// 
+    /// # Parameters
+    /// * `query_condition`: A query condition structure.
+    /// 
+    /// # Returns
+    /// Returns a single record.
     fn fetch_one(&self, query_condition: Self::Query) -> impl Future<Output = Result<Option<T>, Error>> + Send;
 
-    /// 分页查询并返回表中的记录，支持条件查询。
+    /// Paginates and returns records in the table, supporting conditional queries.
+    /// 
+    /// # Parameters
+    /// * `page_number`: The page number.
+    /// * `page_size`: The number of records per page.
+    /// * `query_condition`: A query condition structure.
+    /// 
+    /// # Returns
+    /// Returns a paginated result structure.
     fn fetch_paginated(&self, page_number: u64, page_size: u64, query_condition: Self::Query) -> impl Future<Output = Result<PaginatedResult<T>, Error>> + Send;
 
-    /// 游标分页查询，并返回表中的记录，支持条件查询。
+    /// Cursor paginates and returns records in the table, supporting conditional queries.
+    /// 
+    /// # Parameters
+    /// * `limit`: The number of records per page.
+    /// * `query_condition`: A query condition structure.
+    /// 
+    /// # Returns
+    /// Returns a cursor paginated result structure.
     fn fetch_by_cursor(&self, limit: u64, query_condition: Self::Query) -> impl Future<Output = Result<CursorPaginatedResult<T>, Error>> + Send  where T: Clone;
 
-    /// 检查某个字段的值是否唯一。
+    /// Checks if the value of a field is unique.
+    /// 
+    /// # Parameters
+    /// * `query_condition`: A query condition structure.
     fn exist(&self, query_condition: Self::Query) -> impl Future<Output = Result<bool, Error>> + Send;
 
-    /// 获取记录总数，支持条件查询。
+    /// Gets the total number of records, supporting conditional queries.
+    /// 
+    /// # Parameters
+    /// * `query_condition`: A query condition structure.
+    /// 
+    /// # Returns
+    /// Returns the total number of records.
     fn count(&self, query_condition: Self::Query) -> impl Future<Output = Result<i64, Error>> + Send;
 
-    /// 恢复一条软删除的记录。
+    /// Restores a single soft-deleted record.
+    /// 
+    /// # Parameters
+    /// * `key`: The primary key value of the record to be restored.
     fn restore_one(&self, key: impl Into<Self::DataKind> + Send) -> impl Future<Output = Result<Self::QueryResult, Error>> + Send;
 
-    /// 恢复多条软删除的记录。
+    /// Restores multiple soft-deleted records.
+    /// 
+    /// # Parameters
+    /// * `keys`: A list of primary key values of the records to be restored.
     fn restore_many(&self, keys: Vec<impl Into<Self::DataKind> + Send>) -> impl Future<Output = Result<Self::QueryResult, Error>> + Send;
 
 }
 
-/// 分页查询结果结构体。
-#[derive(Debug, Serialize, Deserialize, Default, Clone)]
+/// Paginated query result structure.
+#[derive(Debug, Serialize, Deserialize, Default, Clone, PartialEq, Hash)]
 pub struct PaginatedResult<T> {
-    /// 查询到的数据记录。
+    /// Data records queried.
     pub data: Vec<T>,
-    /// 总记录数。
+    /// Total number of records.
     pub total: i64,
     pub page_number: u64,
     pub page_size: u64,
 }
 
-/// 游标分页结果结构体
-#[derive(Debug, Serialize, Deserialize, Default, Clone)]
+/// Cursor paginated result structure.
+#[derive(Debug, Serialize, Deserialize, Default, Clone, PartialEq, Hash)]
 pub struct CursorPaginatedResult<T> {
-    pub data: Vec<T>,      // 分页数据
-    pub next_cursor: Option<T>, // 下一个游标值
+    pub data: Vec<T>,      // Paginated data.
+    pub next_cursor: Option<T>, // Next cursor value.
     pub page_size: u64,
 }

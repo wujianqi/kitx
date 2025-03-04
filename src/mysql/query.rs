@@ -23,12 +23,12 @@ impl DatabaseTrait for MySqlQuery {
         let (sql, values) = qb.build();
         let mut query = sqlx::query_as::<_, T>(&sql);
 
-        // 绑定参数值到查询中
+        // Bind parameter values to the query
         for value in values {
             query = query.bind(value)
         }
 
-        // 执行查询并返回单条记录
+        // Execute the query and return a single record
         query.fetch_one(&*pool).await
     }
 
@@ -38,15 +38,14 @@ impl DatabaseTrait for MySqlQuery {
     {
         let pool = self.get_db_pool();
         let (sql, values) = qb.build();
-        dbg!(&sql, &values);
         let mut query = sqlx::query_as::<_, T>(&sql);
 
-        // 绑定参数值到查询中
+        // Bind parameter values to the query
         for value in values {
             query = query.bind(value)
         }
 
-        // 执行查询并返回多条记录
+        // Execute the query and return multiple records
         query.fetch_all(&*pool).await
     }
 
@@ -58,12 +57,12 @@ impl DatabaseTrait for MySqlQuery {
         let (sql, values) = qb.build();
         let mut query = sqlx::query_as::<_, T>(&sql);
 
-        // 绑定参数值到查询中
+        // Bind parameter values to the query
         for value in values {
             query = query.bind(value)
         }
 
-        // 执行查询并返回单条可选记录
+        // Execute the query and return a single optional record
         query.fetch_optional(&*pool).await
     }
 
@@ -72,25 +71,24 @@ impl DatabaseTrait for MySqlQuery {
         let mut conn = pool.acquire().await?;
         let mut tx = conn.begin().await?;
         let (sql, values) = qb.build();
-        dbg!(&sql, &values);
         let mut query = sqlx::query(&sql);
         
-        // 绑定参数值到查询中
+        // Bind parameter values to the query
         for value in values {
             query = query.bind(value)
         }
         
-        // 执行查询并处理事务
+        // Execute the query and handle the transaction
         let result = query.execute(&mut *tx).await;
 
         match result {
             Ok(r) => {
-                // 提交事务
+                // Commit the transaction
                 tx.commit().await?;
                 Ok(r)
             },
             Err(e) => {
-                // 回滚事务
+                // Rollback the transaction
                 tx.rollback().await?;
                 Err(e)
             }

@@ -1,21 +1,21 @@
 use std::{fmt::Debug, marker::PhantomData};
 
-/// 过滤查询子句构建器，用于创建查询条件。
+/// Filter query clause builder, used to create query conditions.
 #[derive(Default, Debug, Clone)]
 pub struct FilterClause<T: Debug + Clone> {
-    /// 存储条件字符串。
+    /// Stores condition string.
     clause: String,
-    /// 存储参数值。
+    /// Stores parameter values.
     values: Vec<T>,
 }
 
 impl<T: Debug + Clone> FilterClause<T> {
-    /// 创建带有特定操作符的新 Filter 构建器。
+    /// Creates a new Filter builder with a specific operator.
     pub fn new<U>(column: &str, op: &str, value: U) -> Self
     where
         U: Into<T>,
     {
-        let mut clause = String::with_capacity(column.len() + op.len() + 3); // 预估长度
+        let mut clause = String::with_capacity(column.len() + op.len() + 3); // Estimated length
         clause.push_str(column);
         clause.push_str(" ");
         clause.push_str(op);
@@ -26,7 +26,7 @@ impl<T: Debug + Clone> FilterClause<T> {
         }
     }
 
-    /// 创建 IS NULL 或 IS NOT NULL 查询条件。
+    /// Creates an IS NULL or IS NOT NULL query condition.
     fn null_or_not(column: &str, not: bool) -> Self {
         let operator = if not { "IS NOT NULL" } else { "IS NULL" };
         let mut clause = String::with_capacity(column.len() + operator.len() + 1);
@@ -39,7 +39,7 @@ impl<T: Debug + Clone> FilterClause<T> {
         }
     }
 
-    /// 创建一个 IN 或 NOT IN 查询条件。
+    /// Creates an IN or NOT IN query condition.
     fn in_or_not_in<I, U>(column: &str, values: I, not: bool) -> Self
     where
         I: IntoIterator<Item = U>,
@@ -61,13 +61,13 @@ impl<T: Debug + Clone> FilterClause<T> {
         }
     }
 
-    /// 创建一个 BETWEEN 查询条件。
+    /// Creates a BETWEEN query condition.
     fn between<U, V>(column: &str, value1: U, value2: V) -> Self
     where
         U: Into<T>,
         V: Into<T>,
     {
-        let mut clause = String::with_capacity(column.len() + 13); // "BETWEEN ? AND ?" 的长度为 13
+        let mut clause = String::with_capacity(column.len() + 13); // "BETWEEN ? AND ?" length is 13
         clause.push_str(column);
         clause.push_str(" BETWEEN ? AND ?");
         FilterClause {
@@ -76,15 +76,15 @@ impl<T: Debug + Clone> FilterClause<T> {
         }
     }
 
-    /// 获取 Filter 子句字符串。
+    /// Gets the Filter clause string.
     ///
-    /// # 返回
-    /// - `(String, Vec<T>)`: Filter 子句字符串和参数值列表。
+    /// # Returns
+    /// - `(String, Vec<T>)`: Filter clause string and parameter values list.
     pub fn build(self) -> (String, Vec<T>) {
         (self.clause, self.values)
     }
 
-    /// 组合多个 FilterClause 使用 AND 连接。
+    /// Combines multiple FilterClause using AND connection.
     pub fn and(mut self, other: FilterClause<T>) -> Self {
         let mut new_clause = String::with_capacity(self.clause.len() + other.clause.len() + 5);
         new_clause.push_str(&self.clause);
@@ -95,7 +95,7 @@ impl<T: Debug + Clone> FilterClause<T> {
         self
     }
 
-    /// 组合多个 FilterClause 使用 OR 连接。
+    /// Combines multiple FilterClause using OR connection.
     pub fn or(mut self, other: FilterClause<T>) -> Self {
         let mut new_clause = String::with_capacity(self.clause.len() + other.clause.len() + 4);
         new_clause.push_str(&self.clause);
@@ -107,22 +107,21 @@ impl<T: Debug + Clone> FilterClause<T> {
     }
 }
 
-
-/// 用于简化拼写，按字段项值创建一个 FilterClause 进行比对查询。
+/// Simplifies writing, creates a FilterClause for field value comparison query.
 pub struct FieldValue<'a, T: Debug + Clone> {
-    /// 字段名称。
+    /// Field name.
     name: &'a str,
     _phantom: PhantomData<T>,
 }
 
 impl<'a, T: Debug + Clone> FieldValue<'a, T> {
-    /// 创建一个新的 FieldValue 实例。
+    /// Creates a new FieldValue instance.
     ///
-    /// # 参数
-    /// - `name`: 字段名称。
+    /// # Parameters
+    /// - `name`: Field name.
     ///
-    /// # 返回
-    /// - `FieldValue`: 初始化的 FieldValue 实例。
+    /// # Returns
+    /// - `FieldValue`: Initialized FieldValue instance.
     fn new(name: &'a str) -> Self {
         FieldValue { 
             name,
@@ -130,113 +129,113 @@ impl<'a, T: Debug + Clone> FieldValue<'a, T> {
          }
     }
 
-    /// 公共构造函数。
+    /// Public constructor.
     pub fn get(name: &'a str) -> Self {
         Self::new(name)
     }
 
-    /// 创建等于条件。
+    /// Creates an equal condition.
     ///
-    /// # 参数
-    /// - `value`: 参数值。
+    /// # Parameters
+    /// - `value`: Parameter value.
     ///
-    /// # 返回
-    /// - `FilterClause`: 初始化的 Filter 子句构建器实例。
+    /// # Returns
+    /// - `FilterClause`: Initialized filter clause builder instance.
     pub fn eq(self, value: impl Into<T>) -> FilterClause<T> 
     {
         FilterClause::new(&self.name, "=", value)
     }
 
-    /// 创建大于条件。
+    /// Creates a greater than condition.
     ///
-    /// # 参数
-    /// - `value`: 参数值。
+    /// # Parameters
+    /// - `value`: Parameter value.
     ///
-    /// # 返回
-    /// - `FilterClause`: 初始化的 Filter 子句构建器实例。
+    /// # Returns
+    /// - `FilterClause`: Initialized filter clause builder instance.
     pub fn gt(self, value: impl Into<T>) -> FilterClause<T> {
         FilterClause::new(&self.name, ">", value)
     }
 
-    /// 创建小于条件。
+    /// Creates a less than condition.
     ///
-    /// # 参数
-    /// - `value`: 参数值。
+    /// # Parameters
+    /// - `value`: Parameter value.
     ///
-    /// # 返回
-    /// - `FilterClause`: 初始化的 Filter 子句构建器实例。
+    /// # Returns
+    /// - `FilterClause`: Initialized filter clause builder instance.
     pub fn lt(self, value: impl Into<T>) -> FilterClause<T> {
         FilterClause::new(&self.name, "<", value)
     }
 
-    /// 创建大于等于条件。
+    /// Creates a greater than or equal condition.
     ///
-    /// # 参数
-    /// - `value`: 参数值。
+    /// # Parameters
+    /// - `value`: Parameter value.
     ///
-    /// # 返回
-    /// - `FilterClause`: 初始化的 Filter 子句构建器实例。
+    /// # Returns
+    /// - `FilterClause`: Initialized filter clause builder instance.
     pub fn gte(self, value: impl Into<T>) -> FilterClause<T> {
         FilterClause::new(&self.name, ">=", value)
     }
 
-    /// 创建小于等于条件。
+    /// Creates a less than or equal condition.
     ///
-    /// # 参数
-    /// - `value`: 参数值。
+    /// # Parameters
+    /// - `value`: Parameter value.
     ///
-    /// # 返回
-    /// - `FilterClause`: 初始化的 Filter 子句构建器实例。
+    /// # Returns
+    /// - `FilterClause`: Initialized filter clause builder instance.
     pub fn lte(self, value: impl Into<T>) -> FilterClause<T> {
         FilterClause::new(&self.name, "<=", value)
     }
 
-    /// 创建 LIKE 条件。
+    /// Creates a LIKE condition.
     ///
-    /// # 参数
-    /// - `value`: 参数值。
+    /// # Parameters
+    /// - `value`: Parameter value.
     ///
-    /// # 返回
-    /// - `FilterClause`: 初始化的 Filter 子句构建器实例。
+    /// # Returns
+    /// - `FilterClause`: Initialized filter clause builder instance.
     pub fn like(self, value: impl Into<T>) -> FilterClause<T> {
         FilterClause::new(&self.name, "LIKE", value)
     }
 
-    /// 创建不等于条件。
+    /// Creates a not equal condition.
     ///
-    /// # 参数
-    /// - `value`: 参数值。
+    /// # Parameters
+    /// - `value`: Parameter value.
     ///
-    /// # 返回
-    /// - `FilterClause`: 初始化的 Filter 子句构建器实例。
+    /// # Returns
+    /// - `FilterClause`: Initialized filter clause builder instance.
     pub fn ne(self, value: impl Into<T>) -> FilterClause<T> {
         FilterClause::new(&self.name, "!=", value)
     }
 
-    /// 创建 IS NULL 条件。
+    /// Creates an IS NULL condition.
     ///
-    /// # 返回
-    /// - `FilterClause`: 初始化的 Filter 子句构建器实例。
+    /// # Returns
+    /// - `FilterClause`: Initialized filter clause builder instance.
     pub fn is_null(self) -> FilterClause<T> {
         FilterClause::null_or_not(&self.name, false)
     }
 
-    /// 创建 IS NOT NULL 条件。
+    /// Creates an IS NOT NULL condition.
     ///
-    /// # 返回
-    /// - `FilterClause`: 初始化的 Filter 子句构建器实例。
+    /// # Returns
+    /// - `FilterClause`: Initialized filter clause builder instance.
     pub fn is_not_null(self) -> FilterClause<T> {
         FilterClause::null_or_not(&self.name, true)
     }
 
-    /// 创建 IN 条件。
+    /// Creates an IN condition.
     ///
-    /// # 参数
-    /// - `values`: 参数值列表。
+    /// # Parameters
+    /// - `values`: Parameter values list.
     ///
-    /// # 返回
-    /// - `FilterClause`: 初始化的 Filter 子句构建器实例。
-    pub fn in_list<I, U>(self, values: I) -> FilterClause<T>
+    /// # Returns
+    /// - `FilterClause`: Initialized filter clause builder instance.
+    pub fn r#in<I, U>(self, values: I) -> FilterClause<T>
     where
         I: IntoIterator<Item = U>,
         U: Into<T>,
@@ -244,14 +243,14 @@ impl<'a, T: Debug + Clone> FieldValue<'a, T> {
         FilterClause::in_or_not_in(&self.name, values, false)
     }
 
-    /// 创建 NOT IN 条件。
+    /// Creates a NOT IN condition.
     ///
-    /// # 参数
-    /// - `values`: 参数值列表。
+    /// # Parameters
+    /// - `values`: Parameter values list.
     ///
-    /// # 返回
-    /// - `FilterClause`: 初始化的 Filter 子句构建器实例。
-    pub fn not_in_list<I, U>(self, values: I) -> FilterClause<T>
+    /// # Returns
+    /// - `FilterClause`: Initialized filter clause builder instance.
+    pub fn not_in<I, U>(self, values: I) -> FilterClause<T>
     where
         I: IntoIterator<Item = U>,
         U: Into<T>,
@@ -259,14 +258,14 @@ impl<'a, T: Debug + Clone> FieldValue<'a, T> {
         FilterClause::in_or_not_in(&self.name, values, true)
     }
 
-    /// 创建 BETWEEN 条件。
+    /// Creates a BETWEEN condition.
     ///
-    /// # 参数
-    /// - `value1`: 第一个参数值。
-    /// - `value2`: 第二个参数值。
+    /// # Parameters
+    /// - `value1`: First parameter value.
+    /// - `value2`: Second parameter value.
     ///
-    /// # 返回
-    /// - `FilterClause`: 初始化的 Filter 子句构建器实例。
+    /// # Returns
+    /// - `FilterClause`: Initialized filter clause builder instance.
     pub fn between(self, value1: impl Into<T>, value2: impl Into<T>) -> FilterClause<T> {
         FilterClause::between(&self.name, value1, value2)
     }

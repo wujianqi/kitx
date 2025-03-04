@@ -1,62 +1,155 @@
 use std::fmt::Debug;
 
-/// SQL 构建器 trait，定义通用的 SQL 构建方法。
+/// SQL builder trait, defining common SQL building methods.
 pub trait BuilderTrait<T: Debug + Clone> {
     type FilterClause;
     type WhenClause<'a>;
     type Join<'a>;
     type Agg<'a>;
     
-    /// 创建一个新的 Builder 实例。
+    /// Creates a new Builder instance.
+    /// 
+    /// # Parameters
+    /// - `sql`: The initial SQL string.
+    /// - `values`: An optional vector of bound parameters.
+    /// 
+    /// # Returns
+    /// A new Builder instance.
     fn new(sql: String, values: Option<Vec<T>>) -> Self;
 
-    /// 创建一个新的 SELECT 语句。
+    /// Creates a new SELECT statement.
+    /// 
+    /// # Parameters
+    /// - `table`: The name of the table to select from.
+    /// - `columns`: A slice of column names to select.
+    /// 
+    /// # Returns
+    /// A new Builder instance.
     fn select(table: impl Into<String>, columns: &[&str]) -> Self;
 
-    /// 创建一个新的 INSERT INTO 语句。
+    /// Creates a new INSERT INTO statement.
+    /// 
+    /// # Parameters
+    /// - `table`: The name of the table to insert into.
+    /// - `columns`: A slice of column names to insert.
+    /// - `values`: A vector of vectors of values to insert.
+    /// 
+    /// # Returns
+    /// A new Builder instance.
     fn insert_into(table: &str, columns: &[&str], values: Vec<Vec<T>>) -> Self;
 
-    /// 创建一个新的 UPDATE 语句。
+    /// Creates a new UPDATE statement.
+    /// 
+    /// # Parameters
+    /// - `table`: The name of the table to update.
+    /// - `columns`: A slice of column names to update.
+    /// - `values`: A vector of values to update.
+    /// 
+    /// # Returns
+    /// A new Builder instance.
     fn update(table: &str, columns: &[&str], values: Vec<T>) -> Self;
 
-    /// 创建一个新的 DELETE 语句。
+    /// Creates a new DELETE statement.
     fn delete(table: &str) -> Self;
 
-    /// 添加 WHERE 子句。
+    /// Adds a WHERE clause.
+    /// 
+    /// # Parameters
+    /// - `clause`: The WHERE clause to add.
+    /// 
+    /// # Returns
+    /// A reference to the Builder instance.
     fn filter(&mut self, clause: Self::FilterClause) -> &mut Self;
 
-    /// 添加 WHERE …… OR 子句。
+    /// Adds a WHERE ... OR clause.
+    /// 
+    /// # Parameters
+    /// - `clause`: The OR clause to add.
+    /// 
+    /// # Returns
+    /// A reference to the Builder instance.
     fn or(&mut self, clause: Self::FilterClause) -> &mut Self;
 
-    /// 添加 ORDER BY 子句。
+    /// Adds an ORDER BY clause.
+    /// 
+    /// # Parameters
+    /// - `column`: The column to order by.
+    /// - `asc`: Whether to order by ascending or descending.
+    /// 
+    /// # Returns
+    /// A reference to the Builder instance.
     fn order_by(&mut self, column: &str, asc: bool) -> &mut Self;
 
-    /// 添加 LIMIT 和 OFFSET 子句。
+    /// Adds LIMIT and OFFSET clauses.
+    /// 
+    /// # Parameters
+    /// - `limit`: The number of rows to limit the result to.
+    /// - `offset`: The number of rows to skip.
+    /// 
+    /// # Returns
+    /// A reference to the Builder instance.
     fn limit_offset(&mut self, limit: u64, offset: Option<u64>) -> &mut Self;
 
-    /// 添加子查询嵌套使用。
+    /// Adds a subquery.
+    /// 
+    /// # Parameters
+    /// - `builder`: The Builder instance to add as a subquery.
+    /// 
+    /// # Returns
+    /// A reference to the Builder instance.
     fn add_subquery(&mut self, builder: Self) -> &mut Self;
 
-    /// 添加自定义 SQL。
+    /// Appends custom SQL.
+    /// 
+    /// # Parameters
+    /// - `sql`: The SQL string to append.
+    /// - `bind_values`: An optional vector of bound parameters to append.
+    /// 
+    /// # Returns
+    /// A reference to the Builder instance.
     fn append(&mut self, sql: &str, bind_values: Option<Vec<T>>) -> &mut Self;
 
-    /// 挂接 CASE WHEN 子句到 SQL 语句中。
-    fn case_when<'a> (&mut self, case_when: Self::WhenClause<'a> ) -> &mut Self;
+    /// Adds a CASE WHEN clause to the SQL statement.
+    /// 
+    /// # Parameters
+    /// - `case_when`: The CASE WHEN clause to add.
+    /// 
+    /// # Returns
+    /// A reference to the Builder instance.
+    fn case_when<'a>(&mut self, case_when: Self::WhenClause<'a>) -> &mut Self;
 
-    /// 挂接 JOIN 子句到 SQL 语句中。
-    fn join<'a> (&mut self, join: Self::Join<'a> ) -> &mut Self;
+    /// Adds a JOIN clause to the SQL statement.
+    /// 
+    /// # Parameters
+    /// - `join`: The JOIN clause to add.
+    /// 
+    /// # Returns
+    /// A reference to the Builder instance.
+    fn join<'a>(&mut self, join: Self::Join<'a>) -> &mut Self;
 
-    /// 挂接聚合查询到 SQL 语句中。
-    fn aggregate<'a> (&mut self, agg: Self::Agg<'a> ) -> &mut Self;
+    /// Adds an aggregate query to the SQL statement.
+    /// 
+    /// # Parameters
+    /// - `agg`: The aggregate query to add.
+    /// 
+    /// # Returns
+    /// A reference to the Builder instance.
+    fn aggregate<'a>(&mut self, agg: Self::Agg<'a>) -> &mut Self;
 
-    /// 构建最终的 SQL 字符串和绑定参数，不可变引用输出。
+    /// Builds the final SQL string and bound parameters, immutable reference output.
+    /// 
+    /// # Returns
+    /// A tuple containing the final SQL string and bound parameters.
     fn build(self) -> (String, Vec<T>);
 
-    /// 构建最终的 SQL 字符串和绑定参数，可变引用输出。
+    /// Builds the final SQL string and bound parameters, mutable reference output.
+    /// 
+    /// # Returns
+    /// A tuple containing the final SQL string and bound parameters.
     fn build_mut(&mut self) -> (String, Vec<T>);
 }
 
-/// 用于封装查询条件的结构体
+/// Struct used to encapsulate query conditions.
 pub struct BuilderCondition<'a, T: Debug + Clone> {
     condition: Option<Box<dyn Fn(&mut T) + Send + 'a>>,
 }
@@ -65,11 +158,13 @@ impl<'a, T> BuilderCondition<'a, T>
 where
     T: Debug + Clone,
 {
-    /// 创建一个新的 BuilderCondition
-    /// # 参数
-    /// - `query_fn`: 查询条件的函数，接受一个Builder 参数，并返回一个 BuilderCondition
-    ///
-    /// # 返回
+    /// Creates a new BuilderCondition.
+    /// 
+    /// # Parameters
+    /// - `query_fn`: A function representing the query condition, accepts a Builder parameter and returns a BuilderCondition.
+    /// 
+    /// # Returns
+    /// A new BuilderCondition instance.
     pub fn from<F>(query_fn: F) -> Self 
     where
         F: Fn(&mut T) + Send + 'a,
@@ -79,12 +174,15 @@ where
         }
     }
 
-    /// 创建一个没有任何查询条件的 Query
+    /// Creates an empty BuilderCondition with no query conditions.
     pub fn empty() -> Self {
         BuilderCondition { condition: None }
     }
 
-    /// 将查询条件应用到 Builder
+    /// Applies the query condition to the Builder.
+    /// 
+    /// # Parameters
+    /// - `builder`: The Builder instance to apply the query condition to.
     pub fn apply(&self, builder: &mut T) {
         if let Some(ref query_fn) = self.condition {
             query_fn(builder);

@@ -7,14 +7,14 @@ pub struct Join<'a, T: Debug + Clone> {
 }
 
 impl<'a, T: Debug + Clone> Join<'a, T> {
-    /// 创建一个新的 JOIN 实例（私有方法，用于内部逻辑）
+    /// Creates a new JOIN instance (private method, used internally)
     fn new(join_type: &str, table: &'a str) -> Self {
         Join {
             joins: vec![(join_type.to_string(), table, None)],
         }
     }
 
-    /// 添加一个 LEFT JOIN
+    /// Adds a LEFT JOIN
     pub fn left(mut self, table: &'a str) -> Self {
         if self.joins.is_empty() {
             Self::new("LEFT JOIN", table)
@@ -24,7 +24,7 @@ impl<'a, T: Debug + Clone> Join<'a, T> {
         }
     }
 
-    /// 添加一个 RIGHT JOIN
+    /// Adds a RIGHT JOIN
     pub fn right(mut self, table: &'a str) -> Self {
         if self.joins.is_empty() {
             Self::new("RIGHT JOIN", table)
@@ -34,7 +34,7 @@ impl<'a, T: Debug + Clone> Join<'a, T> {
         }
     }
 
-    /// 添加一个 INNER JOIN
+    /// Adds an INNER JOIN
     pub fn inner(mut self, table: &'a str) -> Self {
         if self.joins.is_empty() {
             Self::new("INNER JOIN", table)
@@ -44,7 +44,7 @@ impl<'a, T: Debug + Clone> Join<'a, T> {
         }
     }
 
-    /// 添加一个 FULL OUTER JOIN
+    /// Adds a FULL OUTER JOIN
     pub fn full_outer(mut self, table: &'a str) -> Self {
         if self.joins.is_empty() {
             Self::new("FULL OUTER JOIN", table)
@@ -54,7 +54,7 @@ impl<'a, T: Debug + Clone> Join<'a, T> {
         }
     }
 
-    /// 为最后一个 JOIN 设置连接条件
+    /// Sets the join condition for the last JOIN
     pub fn on(mut self, condition: FilterClause<T>) -> Self {
         if let Some(last_join) = self.joins.last_mut() {
             last_join.2 = Some(condition);
@@ -62,13 +62,13 @@ impl<'a, T: Debug + Clone> Join<'a, T> {
         self
     }
 
-    /// 构建所有 JOIN 子句的 SQL 字符串和参数值
+    /// Builds SQL string and parameter values for all JOIN clauses
     pub fn build(&self) -> (String, Vec<T>)
     where
         T: Clone,
     {
-        // 预先分配足够的容量
-        let mut sql = String::with_capacity(self.joins.len() * 128); // 根据实际情况调整容量
+        // Pre-allocate sufficient capacity
+        let mut sql = String::with_capacity(self.joins.len() * 128); // Adjust capacity as needed
         let mut values = Vec::new();
 
         for (join_type, table, condition) in &self.joins {

@@ -6,27 +6,27 @@ use std::sync::Arc;
 use tokio::sync::OnceCell;
 use std::time::Duration;
 
-// 全局静态变量，用于存储数据库连接池
+// Global static variable to store the database connection pool
 static DB_POOL: OnceCell<Arc<SqlitePool>> = OnceCell::const_new();
 
-// 按自定义的pool初始化连接池
+// Initialize the connection pool with a custom pool
 pub async fn init_db_pool_custom<'a>(pool: Pool<Sqlite>) -> Result<&'a SqlitePool, Error> {
-    // 创建连接池
+    // Create the connection pool
     let pool = Arc::new(pool);
 
-    // 强制评估 OnceCell，确保连接池被初始化
+    // Force evaluation of OnceCell to ensure the connection pool is initialized
     DB_POOL.get_or_try_init(|| async { Ok(pool.clone()) }).await
         .map(|arc| arc.as_ref())
 }
 
-/// 按数据库地址初始化数据库连接池，并启用 WAL 模式。
+/// Initializes the database connection pool with the database URL and enables WAL mode.
 pub async fn init_db_pool(database_url: &str) -> Result<&SqlitePool, Error> {
-    // 配置 SQLite 连接选项
+    // Configure SQLite connection options
     let connect_options = SqliteConnectOptions::from_str(database_url)?
-        .create_if_missing(true) // 如果数据库不存在则创建
-        .journal_mode(SqliteJournalMode::Wal); // 启用 WAL 模式
+        .create_if_missing(true) // Create the database if it does not exist
+        .journal_mode(SqliteJournalMode::Wal); // Enable WAL mode
 
-    // 创建连接池
+    // Create the connection pool
     let pool = PoolOptions::new()
         .max_connections(20)
         .min_connections(5)
@@ -38,7 +38,7 @@ pub async fn init_db_pool(database_url: &str) -> Result<&SqlitePool, Error> {
     init_db_pool_custom(pool).await
 }
 
-/// 获取数据库连接池的引用。
+/// Gets a reference to the database connection pool.
 pub fn get_db_pool() -> &'static SqlitePool {
     DB_POOL.get().expect("Database pool not initialized")
 }

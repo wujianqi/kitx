@@ -8,22 +8,22 @@ use sqlx::sqlite::SqliteArgumentValue;
 
 use crate::common::util::{check_empty, unwrap_option};
 
-/// 数据类型枚举，用于表示不同类型的数据库字段值。
+/// Enum representing different types of database field values.
 #[derive(Debug, Clone)]
 pub enum DataKind<'a> {
-    /// 文本类型（字符串）。
+    /// Text type (string).
     Text(Cow<'a, str>),
-    /// 整数类型（i64）。
+    /// Integer type (i64).
     Integer(i64),
-    /// 浮点数类型（f64）。
+    /// Real number type (f64).
     Real(f64),
-    /// 日期时间类型（DateTime<Utc>）。
+    /// Date and time type (DateTime<Utc>).
     DateTime(DateTime<Utc>),
-    /// BLOB类型（字节数组）。
+    /// BLOB type (byte array).
     Blob(Cow<'a, [u8]>),
-    /// 空值类型。
+    /// Null type.
     Null,
-    /// 不支持的类型。
+    /// Unsupported type.
     Unsupported,
 }
 
@@ -70,7 +70,7 @@ impl<'a> Type<Sqlite> for DataKind<'a> {
     }
 }
 
-/// 将任意类型的值转换为 `DataKind` 枚举类型。
+/// Convert any type of value to the `DataKind` enum type.
 pub fn value_convert<'a>(value: &dyn Any) -> DataKind<'a> {
     if let Some(s) = unwrap_option::<String>(value) {
         DataKind::Text(Cow::Owned(s.clone()))
@@ -117,7 +117,7 @@ pub fn value_convert<'a>(value: &dyn Any) -> DataKind<'a> {
     }
 }
 
-/// 辅助函数，判断一个值是否为空。
+/// Helper function to determine if a value is empty.
 pub fn is_empty(value: &dyn Any) -> bool {
     check_empty(value, |value| {
         if value.is::<Option<String>>()
@@ -138,7 +138,7 @@ pub fn is_empty(value: &dyn Any) -> bool {
     })
 }
 
-// 实现从常见类型到 DataKind 的自动转换
+// Implement automatic conversion from common types to DataKind
 impl<'a> From<Cow<'a, str>> for DataKind<'a> {
     fn from(item: Cow<'a, str>) -> Self {
         DataKind::Text(item)
