@@ -16,6 +16,7 @@ Currently supports only SQLite and MySQL (MariaDB).
   - `restore_one`, `restore_many`
 
 **Custom extensions are supported.**
+- The SQL builder supports JOIN, CASE WHEN, aggregation queries, and other operations. Additionally, you can extend the Operations methods..
 
 ### Notes
 
@@ -52,8 +53,8 @@ async fn update() {
       a_class: Some("about".to_string()),
       a_content: Some("content".to_string()),
     };
-    let ase = Operations::new("article", ("a_id", true), None);
-    let result = ase.update_one(article, false).await;
+    let op:Operations<'static, Article> = Operations::new("article", ("a_id", true), None);
+    let result = op.update_one(article, false).await;
 
     match result {
         Ok(ret) => {

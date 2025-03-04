@@ -8,7 +8,7 @@ description = "A lightweight wrapper for database operations based on sqlx, enab
 repository = "https://github.com/wujianqi/kitx"
 documentation = "https://docs.rs/kitx"
 readme = "README.md"
-keywords = ["sqlx", "sql builder", "CRUD", "database", "ORM"]
+keywords = ["sqlx", "sql_builder", "CRUD", "database", "ORM"]
 categories = ["database"]
 license-file = "LICENSE"
 
