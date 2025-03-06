@@ -57,7 +57,6 @@ impl<'a> QueryBuilder<'a> {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;

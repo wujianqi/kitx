@@ -10,6 +10,7 @@ use crate::common::operations::{OperationsTrait, CursorPaginatedResult, Paginate
 use super::kind::{is_empty, value_convert, DataKind};
 use super::query::SqliteQuery;
 use super::sql::{field, QueryBuilder, QueryCondition};
+use super::global::{get_global_soft_delete_field, get_global_filter};
 
 /// Data operations structure for performing CRUD operations on entities in the database.
 pub struct Operations<'a, T>
@@ -20,8 +21,6 @@ where
     table_name: &'a str,
     /// Primary key field name used to uniquely identify records in the table, and whether it generates a default value.
     primary_key: (&'a str, bool),
-    /// Soft delete field name and filter flag used to mark records as deleted and whether to filter them.
-    soft_delete_info: Option<(&'a str, bool)>,
     /// Phantom data for compile-time type checking.
     _phantom: PhantomData<&'a T>,
 
@@ -36,7 +35,7 @@ where
     type Query = QueryCondition<'a>;    
     type DataKind = DataKind<'a>;
     type QueryResult = SqliteQueryResult;
-    fn new(table_name: &'a str, primary_key: (&'a str, bool), soft_delete_info: Option<(&'a str, bool)>) -> Self {
+    fn new(table_name: &'a str, primary_key: (&'a str, bool)) -> Self {
         let primary_key = if primary_key.0.is_empty() {
             (primary_key.0, false)
         } else {
@@ -46,7 +45,6 @@ where
         Operations {
             table_name,
             primary_key,
-            soft_delete_info,
             _phantom: PhantomData,
             query: SqliteQuery,
         }
@@ -158,48 +156,60 @@ where
     async fn delete_one(&self, key: impl Into<DataKind<'a>> + Send) -> Result<Self::QueryResult, Error> {
         let key = key.into();
 
-        if let Some((column, _)) = self.soft_delete_info {
-            let mut query = QueryBuilder::update(self.table_name, &[column], vec![DataKind::from(true)]);
-            query.filter(field(self.primary_key.0).eq(key));
-            self.query.execute(query).await
-        } else {
-            let mut query = QueryBuilder::delete(self.table_name);
-            query.filter(field(self.primary_key.0).eq(key));
-            self.query.execute(query).await
+        if let Some((column, exclude_tables)) = get_global_soft_delete_field() {
+            if !exclude_tables.contains(&self.table_name) {
+                let mut query = QueryBuilder::update(self.table_name, &[column], vec![DataKind::from(true)]);
+                query.filter(field(self.primary_key.0).eq(key));
+                return self.query.execute(query).await;
+            }
         }
-    }
-
-    async fn delete_many(&self, keys: Vec<impl Into<DataKind<'a>> + Send>) -> Result<Self::QueryResult, Error> {
-        let keys: Vec<DataKind<'a>> = keys.into_iter().map(|k| k.into()).collect();
-        if let Some((column, _)) = self.soft_delete_info {
-            let mut query = QueryBuilder::update(self.table_name, &[column], vec![DataKind::from(true)]);
-            query.filter(field(self.primary_key.0).r#in(keys));
-            self.query.execute(query).await
-        } else {
-            let mut query = QueryBuilder::delete(self.table_name);
-            query.filter(field(self.primary_key.0).r#in(keys));
-            self.query.execute(query).await
-        }
-    }
-
-    async fn restore_one(&self, key: impl Into<DataKind<'a>> + Send) -> Result<Self::QueryResult, Error> {
-        let key = key.into();
-        let mut query = QueryBuilder::update(self.table_name, &[self.soft_delete_info.as_ref().unwrap().0], vec![DataKind::from(false)]);
+        let mut query = QueryBuilder::delete(self.table_name);
         query.filter(field(self.primary_key.0).eq(key));
         self.query.execute(query).await
     }
 
-    async fn restore_many(&self, keys: Vec<impl Into<DataKind<'a>> + Send>) -> Result<Self::QueryResult, Error> {
+    async fn delete_many(&self, keys: Vec<impl Into<DataKind<'a>> + Send>) -> Result<Self::QueryResult, Error> {
         let keys: Vec<DataKind<'a>> = keys.into_iter().map(|k| k.into()).collect();
-        let mut query = QueryBuilder::update(self.table_name, &[self.soft_delete_info.as_ref().unwrap().0], vec![DataKind::from(false)]);
+        if let Some((column, exclude_tables)) = get_global_soft_delete_field() {
+            if !exclude_tables.contains(&self.table_name) {
+                let mut query = QueryBuilder::update(self.table_name, &[column], vec![DataKind::from(true)]);
+                query.filter(field(self.primary_key.0).r#in(keys));
+                return self.query.execute(query).await;
+            }
+        }
+        let mut query = QueryBuilder::delete(self.table_name);
         query.filter(field(self.primary_key.0).r#in(keys));
         self.query.execute(query).await
+    }
+
+    async fn restore_one(&self, key: impl Into<DataKind<'a>> + Send) -> Result<Self::QueryResult, Error> {
+        let key = key.into();
+        if let Some((column, exclude_tables)) = get_global_soft_delete_field() {
+            if !exclude_tables.contains(&self.table_name) {
+                let mut query = QueryBuilder::update(self.table_name, &[column], vec![DataKind::from(false)]);
+                query.filter(field(self.primary_key.0).eq(key));
+                return self.query.execute(query).await;
+            }
+        }
+        Err(Error::Protocol("Restore operation not supported without soft delete configuration".to_string()))
+    }
+
+    async fn restore_many(&self, keys: Vec<impl Into<DataKind<'a>> + Send>) -> Result<Self::QueryResult, Error> {
+        let keys: Vec<DataKind<'a>> = keys.into_iter().map(|k| k.into()).collect();
+        if let Some((column, exclude_tables)) = get_global_soft_delete_field() {
+            if !exclude_tables.contains(&self.table_name) {
+                let mut query = QueryBuilder::update(self.table_name, &[column], vec![DataKind::from(false)]);
+                query.filter(field(self.primary_key.0).r#in(keys));
+                return self.query.execute(query).await;
+            }
+        }
+        Err(Error::Protocol("Restore operation not supported without soft delete configuration".to_string()))
     }
 
     async fn fetch_all(&self, query_condition: Self::Query) -> Result<Vec<T>, Error> {
         let mut builder = QueryBuilder::select(self.table_name, &["*"]);
         query_condition.apply(&mut builder);
-        self.apply_soft_delete_filter(&mut builder);
+        self.apply_global_filters(&mut builder);
         let result = self.query.fetch_all::<T>(builder).await?;
         Ok(result)
     }
@@ -208,21 +218,21 @@ where
         let id = id.into();
         let mut builder = QueryBuilder::select(self.table_name, &["*"]);
         builder.filter(field(self.primary_key.0).eq(id));
-        self.apply_soft_delete_filter(&mut builder);
+        self.apply_global_filters(&mut builder);
         self.query.fetch_optional::<T>(builder).await
     }
 
     async fn fetch_one(&self, query_condition: Self::Query) -> Result<Option<T>, Error> {
         let mut builder = QueryBuilder::select(self.table_name, &["*"]);
         query_condition.apply(&mut builder);
-        self.apply_soft_delete_filter(&mut builder);
+        self.apply_global_filters(&mut builder);
         self.query.fetch_optional::<T>(builder).await
     }
 
     async fn fetch_paginated(&self, page_number: u64, page_size: u64, query_condition: Self::Query) -> Result<PaginatedResult<T>, Error> {
         let mut builder = QueryBuilder::select(self.table_name, &["*"]);
         query_condition.apply(&mut builder);       
-        self.apply_soft_delete_filter(&mut builder);
+        self.apply_global_filters(&mut builder);
 
         let offset = (&page_number - 1) * &page_size;
         builder.limit_offset(page_size, Some(offset));
@@ -232,13 +242,13 @@ where
         Ok(PaginatedResult { data, total, page_number, page_size })
     }
 
-    async fn fetch_by_cursor(&self, limit: u64, query_condition: Self::Query) -> Result<CursorPaginatedResult<T>, Error>
-    where
+    async fn fetch_by_cursor(&self, limit: u64, query_condition: Self::Query) -> Result<CursorPaginatedResult<T>, Error> 
+    where 
         T: Clone,
     {
         let mut builder = QueryBuilder::select(self.table_name, &["*"]);
         query_condition.apply(&mut builder);
-        self.apply_soft_delete_filter(&mut builder);
+        self.apply_global_filters(&mut builder);
 
         builder.limit_offset(limit,None);
         let data = self.query.fetch_all::<T>(builder).await?;
@@ -256,7 +266,7 @@ where
     async fn exist(&self, query_condition: Self::Query) -> Result<bool, Error> {
         let mut builder = QueryBuilder::select(self.table_name, &["1"]);
         query_condition.apply(&mut builder);
-        self.apply_soft_delete_filter(&mut builder);
+        self.apply_global_filters(&mut builder);
         let result = self.query.fetch_optional::<(i32,)>(builder).await?;
         Ok(result.is_some())
     }
@@ -264,7 +274,7 @@ where
     async fn count(&self, query_condition: Self::Query) -> Result<i64, Error> {
         let mut builder = QueryBuilder::select(self.table_name, &["COUNT(*)"]);
         query_condition.apply(&mut builder);
-        self.apply_soft_delete_filter(&mut builder);
+        self.apply_global_filters(&mut builder);
         let result = self.query.fetch_one::<(i64,)>(builder).await?;
         Ok(result.0)
     }
@@ -275,11 +285,17 @@ impl<'a, T> Operations<'a, T>
 where
     T: for<'r> FromRow<'r, SqliteRow> + FieldAccess + Unpin + Send + Sync + Default,
 {
-    // Apply soft delete filter to the query builder
-    fn apply_soft_delete_filter(&self, builder: &mut QueryBuilder<'a>) {
-        if let Some((soft_delete_field, filter_soft_deleted)) = &self.soft_delete_info {
-            if *filter_soft_deleted {
+    // Applies global filters including soft delete content filtering
+    fn apply_global_filters(&self, builder: &mut QueryBuilder<'a>) {
+        if let Some((soft_delete_field, exclude_tables)) = get_global_soft_delete_field() {
+            if !exclude_tables.contains(&self.table_name) {
                 builder.filter(field(soft_delete_field).eq(false));
+            }
+        }
+
+        if let Some((filter, exclude_tables)) = get_global_filter() {
+            if !exclude_tables.contains(&self.table_name) {
+                builder.filter(filter);
             }
         }
     }

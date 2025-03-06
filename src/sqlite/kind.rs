@@ -17,7 +17,7 @@ pub enum DataKind<'a> {
     Integer(i64),
     /// Real number type (f64).
     Real(f64),
-    /// Date and time type (DateTime<Utc>).
+    /// Date and time type (`DateTime<Utc>`).
     DateTime(DateTime<Utc>),
     /// BLOB type (byte array).
     Blob(Cow<'a, [u8]>),

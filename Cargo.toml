@@ -1,6 +1,6 @@
 [package]
 name = "kitx"
-version = "0.0.5"
+version = "0.0.6"
 edition = "2024"
 authors = ["Wu Jianqi <janchie@163.com>"]
 
@@ -22,12 +22,8 @@ field_access = "0.1.11"
 
 [features]
 default = ["sqlite"]
-sqlite = [
-    "sqlx/sqlite",
-]
-mysql = [
-    "sqlx/mysql"
-]
+sqlite = ["sqlx/sqlite",]
+mysql = ["sqlx/mysql"]
 
 [dev-dependencies]
 dotenv = "0.15.0"

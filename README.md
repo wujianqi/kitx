@@ -23,7 +23,6 @@ Currently supports only SQLite and MySQL (MariaDB).
 - This library is not an ORM library. It is an SQL statement builder based on [sqlx](https://crates.io/crates/sqlx).
 - Instead of using custom macros for entity structs, we use the [field_access](https://crates.io/crates/field_access) crate, which makes it easier to operate on entity properties. This approach ensures simplicity and reduces coupling.
 
-### Examples
 
 #### SQL Builder Example
 
@@ -53,7 +52,7 @@ async fn update() {
       a_class: Some("about".to_string()),
       a_content: Some("content".to_string()),
     };
-    let op:Operations<'static, Article> = Operations::new("article", ("a_id", true), None);
+    let op:Operations<'static, Article> = Operations::new("article", ("a_id", true));
     let result = op.update_one(article, false).await;
 
     match result {
@@ -67,6 +66,19 @@ async fn update() {
         }
     }
 }
+```
+
+### Configuration Examples
+```rust
+/// field_name: The name of the field used for soft deletes.
+/// exclude_tables: A list of table names to exclude from this behavior.
+set_global_soft_delete_field("is_deleted", vec!["users"]);
+
+/// filter: A tuple containing the filter clause and a list of tables to exclude from this filter.
+set_global_filter((field("tenant_id").eq(20), vec!["logs"]));
+
+/// The above configuration is not mandatory. No other changes are required.
+
 ```
 
 --------------------

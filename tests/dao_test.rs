@@ -39,7 +39,7 @@ mod sqlite_tests {
     }
 
     fn get_operations() -> SqliteOperations<'static, Article> {
-        SqliteOperations::new("article", ("a_id", true), None)
+        SqliteOperations::new("article", ("a_id", true))
     }
     
     #[tokio::test]
@@ -132,7 +132,7 @@ mod mysql_tests {
     }
 
     fn get_operations() -> MySqlOperations<'static, Article> {
-        MySqlOperations::new("article", ("a_id", true), None)
+        MySqlOperations::new("article", ("a_id", true))
     }
     
     #[tokio::test]

@@ -17,7 +17,7 @@ where
     /// * `table_name`: The name of the table.
     /// * `primary_key`: A tuple containing the name of the primary key column and a boolean indicating whether the primary key is auto-incrementing.
     /// * `soft_delete_info`: A tuple containing the name of the soft-delete column and a boolean indicating whether the column is auto-incrementing.
-    fn new(table_name: &'a str, primary_key: (&'a str, bool), soft_delete_info: Option<(&'a str, bool)>) -> Self;
+    fn new(table_name: &'a str, primary_key: (&'a str, bool)) -> Self;
 
     /// Inserts a single record into the database and returns the primary key value of the inserted record.
     /// 
