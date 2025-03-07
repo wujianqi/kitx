@@ -13,7 +13,7 @@ categories = ["database"]
 license-file = "LICENSE"
 
 [dependencies]
-sqlx = { version = "0.8.2", default-features = true, features = ["runtime-tokio-native-tls", "chrono", "json"] }
+sqlx = { version = "0.8.2", default-features = true, features = ["runtime-tokio-native-tls"] }
 tokio = { version = "1.42.0", features = ["full"] }
 serde = { version = "1.0.215", features = ["derive"] }
 serde_json = "1.0.133"
@@ -21,9 +21,9 @@ chrono = { version = "0.4.38", features = ["serde"] }
 field_access = "0.1.11"
 
 [features]
-default = ["sqlite"]
-sqlite = ["sqlx/sqlite",]
-mysql = ["sqlx/mysql"]
+default = ["sqlite", "mysql"]
+sqlite = ["sqlx/sqlite", "sqlx/chrono", "sqlx/json"]
+mysql = ["sqlx/mysql", "sqlx/chrono", "sqlx/json"]
 
 [dev-dependencies]
 dotenv = "0.15.0"

@@ -1,96 +1,95 @@
-## Lightweight Database Wrapper Based on Sqlx
+# KitX - Lightweight SQL Builder for Rust
 
-Currently supports only SQLite and MySQL (MariaDB).
+A minimalistic SQL builder library based on [sqlx](https://crates.io/crates/sqlx), supporting SQLite and MySQL/MariaDB. Provides type-safe database operations with soft delete capabilities and global filters.
 
-### Features
+## Features
 
-**Built-in Database Operations**
+### Core Functionality
+- **Type-Safe CRUD Operations**  
+  `insert_one`, `insert_many`, `update_one`, `update_many`, `delete_one`, `delete_many` with transaction support
 
-- **CRUD Operations (Transaction-based):**
-  - `insert_one`, `insert_many`, `update_one`, `update_many`, `delete_one`, `delete_many`
+- **Advanced Queries**  
+  `fetch_all`, `fetch_by_key`, `fetch_one`, `fetch_paginated`, `fetch_by_cursor`, `exists`, `count`
 
-- **Query Operations:**
-  - `fetch_all`, `fetch_by_key`, `fetch_one`, `fetch_paginated`, `fetch_by_cursor`, `exist`, `count`
+- **Soft Delete Management**  
+  `restore_one`, `restore_many` with global configuration
 
-- **Soft Delete and Restore Operations:**
-  - `restore_one`, `restore_many`
+- **Flexible Query Building**  
+  Supports JOINs, CASE WHEN, aggregations, and custom SQL extensions
 
-**Custom extensions are supported.**
-- The SQL builder supports JOIN, CASE WHEN, aggregation queries, and other operations. Additionally, you can extend the Operations methods..
+### Key Advantages
+- 🚀 **No ORM Overhead** - Direct SQL interaction with builder pattern
+- 🔧 **Field Access API** - Uses [field_access](https://crates.io/crates/field_access) for type-safe column operations
+- 🌍 **Global Filters** - Apply tenant ID or soft delete filters across all queries
+- 📦 **Extensible** - Easily add custom operations and query modifiers
 
-### Notes
+## Quick Start
 
-- This library is not an ORM library. It is an SQL statement builder based on [sqlx](https://crates.io/crates/sqlx).
-- Instead of using custom macros for entity structs, we use the [field_access](https://crates.io/crates/field_access) crate, which makes it easier to operate on entity properties. This approach ensures simplicity and reduces coupling.
-
-
-#### SQL Builder Example
-
-```rust
-
-fn sql_test() {
-    let query = QueryBuilder::select("users", &["id", "name"])
-        .filter(field("age").eq(23))
-        .filter(field("salary").gt(45))
-        .or(field("status").r#in(vec!["A", "B"]))
-        .order_by("name", true)
-        .order_by("age", false)
-        .build_mut().0;
-
-    assert_eq!(query, "SELECT id, name FROM users WHERE age = ? AND salary > ? OR status IN (?, ?) ORDER BY name ASC, age DESC");
-}
-```
-
-#### Data Modification Example  
-
-```rust
-async fn update() {
-    setup_db_pool().await;
-
-    let article = Article {
-      a_id: 2,
-      a_class: Some("about".to_string()),
-      a_content: Some("content".to_string()),
-    };
-    let op:Operations<'static, Article> = Operations::new("article", ("a_id", true));
-    let result = op.update_one(article, false).await;
-
-    match result {
-        Ok(ret) => {
-          println!("{:?}", ret);
-          assert!(true);
-        },
-        Err(e) =>{
-          eprintln!("{:?}", e);
-          assert!(false);
-        }
-    }
-}
-```
-
-### Configuration Examples
-```rust
-/// field_name: The name of the field used for soft deletes.
-/// exclude_tables: A list of table names to exclude from this behavior.
-set_global_soft_delete_field("is_deleted", vec!["users"]);
-
-/// filter: A tuple containing the filter clause and a list of tables to exclude from this filter.
-set_global_filter((field("tenant_id").eq(20), vec!["logs"]));
-
-/// The above configuration is not mandatory. No other changes are required.
-
-```
-
---------------------
-
+### 1. Add Dependency
 ```toml
-[dependencies]
-kitx = "0.0.5"  # default sqlite
+# Default SQLite and MySQL support
+kitx = "0.0.6"
 
-# Uncomment the following lines to use MySQL instead of SQLite
-# kitx = { version = "0.0.5", features = ["mysql"] } 
+# For SQLite only
+kitx = { version = "0.0.6", default-features = false, features = ["sqlite"] }
 
+# For MySQL/MariaDB only
+kitx = { version = "0.0.6", default-features = false, features = ["mysql"] }
 ```
 
-#### Rust Version
-It is recommended to use Rust version 1.85.0.
+### 2. Basic Usage
+```rust
+use kitx::sqlite::{sql::QueryBuilder, sql::field, operations::Operations};
+
+// SQL Builder Example
+let query = QueryBuilder::select("users", &["id", "name"])
+    .filter(field("age").eq(23))
+    .filter(field("salary").gt(4500))
+    .or(field("status").in_vec(vec!["active", "pending"]))
+    .order_by("created_at", false)
+    .build().0;
+
+// CRUD Operations
+let op = Operations::new("articles", ("article_id", true));
+let article = Article {
+    id: 42,
+    title: "Rust Best Practices".into(),
+    content: "...".into(),
+};
+
+// Insert with transaction
+op.insert_one(article, true).await?;
+```
+
+### 3. Global Configuration
+```rust
+// Soft delete configuration
+set_global_soft_delete_field("deleted_at", vec!["audit_logs"]);
+
+// Multi-tenant filtering
+set_global_filter((
+    field("tenant_id").eq(123), 
+    vec!["system_metrics"]
+));
+```
+
+## Advanced Usage
+
+### Pagination Example
+```rust
+let results = op.fetch_paginated(
+    10,            // page size
+    2,             // page number
+    QueryCondition // filter conditions
+).await?;
+```
+
+## Requirements
+- Rust 1.85.0
+- SQLite 3 or MySQL 5+
+- sqlx-cli for migrations
+
+## License
+MIT License
+
+
