@@ -6,7 +6,7 @@ use sqlx::{Error, FromRow, Postgres};
 use crate::common::builder::BuilderTrait;
 use crate::common::database::DatabaseTrait;
 use crate::common::operations::{OperationsTrait, CursorPaginatedResult, PaginatedResult};
-use crate::common::util::check_empty_or_none;
+use crate::common::util::is_empty_or_none;
 
 use super::kind::{value_convert, DataKind};
 use super::query::PostgresQuery;
@@ -103,7 +103,7 @@ where
         for (name, field) in entity.fields() {
             if name != self.primary_key.0 {
                 let value = value_convert(field.as_any());
-                if !override_empty && check_empty_or_none(&value) {
+                if !override_empty && is_empty_or_none(&value) {
                     continue;
                 }
                 cols_names.push(name);
@@ -135,7 +135,7 @@ where
             for (name, field) in entity.fields() {
                 if name != self.primary_key.0 {
                     let value = value_convert(field.as_any());
-                    if override_empty && check_empty_or_none(&value) {
+                    if override_empty && is_empty_or_none(&value) {
                         continue;
                     }
                     cols_names.push(name);

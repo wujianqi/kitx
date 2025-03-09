@@ -18,7 +18,7 @@ pub fn unwrap_option<'a, T: 'static>(value: &'a dyn Any) -> Option<&'a T> {
 /// Helper function to check if a value is empty and handle Option types using a closure
 /// It can handle Option<Option<T>>, Option<T>, and T types.
 /// It returns true if the value is empty or None, otherwise it returns false.
-pub fn check_empty_or_none(value: &dyn Any) -> bool {
+pub fn is_empty_or_none(value: &dyn Any) -> bool {
     macro_rules! check_type {
         ($ty:ty, $predicate:expr) => {{
             if let Some(opt) = value.downcast_ref::<Option<Option<$ty>>>() {
@@ -39,7 +39,6 @@ pub fn check_empty_or_none(value: &dyn Any) -> bool {
     check_type!(&str, |s: &&str| s.is_empty() || s.eq_ignore_ascii_case("null"));
     check_type!(Vec<u8>, |b: &Vec<u8>| b.is_empty());
     check_type!(&[u8], |b: &&[u8]| b.is_empty());
-    check_type!((), |_| false); // 单独的 () 不为空
 
     if let Some(opt) = value.downcast_ref::<Option<()>>() {
         return opt.is_none();
@@ -90,13 +89,13 @@ mod tests {
         let empty_opt_none: Option<String> = None;
         let empty_vec:Vec<u8> = vec![];
 
-        assert!(!check_empty_or_none(&str));
-        assert!(!check_empty_or_none(&opt_str));
-        assert!(check_empty_or_none(&opt_none));
-        assert!(check_empty_or_none(&empty_str));
-        assert!(check_empty_or_none(&empty_opt_str));
-        assert!(check_empty_or_none(&empty_opt_none)); 
-        assert!(check_empty_or_none(&empty_vec));       
+        assert!(!is_empty_or_none(&str));
+        assert!(!is_empty_or_none(&opt_str));
+        assert!(is_empty_or_none(&opt_none));
+        assert!(is_empty_or_none(&empty_str));
+        assert!(is_empty_or_none(&empty_opt_str));
+        assert!(is_empty_or_none(&empty_opt_none)); 
+        assert!(is_empty_or_none(&empty_vec));       
     }
 
     #[test]
