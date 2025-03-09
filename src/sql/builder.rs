@@ -18,10 +18,10 @@ impl<T: Debug + Clone> BuilderTrait<T> for Builder<T> {
     type Join<'a> = Join<'a, T>;
     type Agg<'a>  = Agg<'a, T>;
 
-    fn new(sql: String, params: Option<Vec<T>>) -> Self {
+    fn new(sql: impl Into<String>,  params: Option<Vec<T>>) -> Self {
         let values = params.unwrap_or(Vec::new());
         Self {
-            sql,
+            sql: sql.into(),
             where_clauses: Vec::new(),
             order_by_clauses: Vec::new(),
             limit_offset: None,
@@ -101,6 +101,16 @@ impl<T: Debug + Clone> BuilderTrait<T> for Builder<T> {
         self
     }
 
+    fn and(&mut self, clause: FilterClause<T>) -> &mut Self {
+        if let Some(last_clause) = self.where_clauses.pop() {
+            let combined_clause = last_clause.and(clause);
+            self.where_clauses.push(combined_clause);
+        } else {
+            self.where_clauses.push(clause);
+        }
+        self
+    }
+
     fn or(&mut self, clause: FilterClause<T>) -> &mut Self {
         if let Some(last_clause) = self.where_clauses.pop() {
             let combined_clause = last_clause.or(clause);
@@ -142,8 +152,8 @@ impl<T: Debug + Clone> BuilderTrait<T> for Builder<T> {
         self
     }
 
-    fn append(&mut self, sql: &str, bind_values: Option<Vec<T>>) -> &mut Self {
-        self.sql.push_str(sql);
+    fn append(&mut self, sql: impl Into<String>, bind_values: Option<Vec<T>>) -> &mut Self {
+        self.sql.push_str(&sql.into());
         if let Some(values) = bind_values {
             self.values.extend(values);
         }

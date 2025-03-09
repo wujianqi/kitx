@@ -3,7 +3,7 @@ use std::borrow::Cow;
 use chrono::{DateTime, Utc};
 
 /// Defines an enumeration compatible with multiple types
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub enum Value<'a> {
     Int(i32),
     Float(f32),
@@ -11,6 +11,7 @@ pub enum Value<'a> {
     Bool(bool),
     Timestamp(DateTime<Utc>),
     Blob(Cow<'a, [u8]>),
+    #[default]
     Null,
 }
 

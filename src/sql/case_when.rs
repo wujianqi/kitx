@@ -1,4 +1,3 @@
-use std::marker::PhantomData;
 use std::fmt::Debug;
 use super::filter::FilterClause;
 
@@ -9,8 +8,8 @@ pub struct WhenClause<'a, T: Debug + Clone> {
     cases: Vec<(String, Vec<T>)>,
     /// Currently building CASE WHEN clause.
     current_case: Option<(String, Vec<T>)>,
-    /// Lifetime marker, used to reference external strings.
-    _marker: PhantomData<&'a str>,
+    /// Stores alias of the CASE WHEN clause.
+    alias: Option<&'a str>
 }
 
 impl<'a, T: Debug + Clone> WhenClause<'a, T> {
@@ -25,7 +24,7 @@ impl<'a, T: Debug + Clone> WhenClause<'a, T> {
         WhenClause {
             cases: Vec::new(),
             current_case: Some((String::from("CASE"), Vec::new())),
-            _marker: std::marker::PhantomData,
+            alias: None,
         }
     }
 
@@ -46,6 +45,11 @@ impl<'a, T: Debug + Clone> WhenClause<'a, T> {
             case_when_clause.push_str(result);
             values.extend(condition_values);
         }
+        self
+    }
+
+    pub fn alias(mut self, alias: &'a str) -> Self {
+        self.alias = Some(alias);
         self
     }
 
@@ -72,22 +76,25 @@ impl<'a, T: Debug + Clone> WhenClause<'a, T> {
         if let Some(current_case) = self.current_case.take() {
             self.cases.push(current_case);
         }
-
+    
         // Pre-allocate sufficient capacity
-        let mut sql = String::with_capacity(self.cases.len() * 64); // Adjust capacity as needed
+        let mut sql = String::with_capacity(128);
         let mut values = Vec::new();
-
+    
         for (case_when_clause, condition_values) in self.cases {
             sql.push_str(&case_when_clause);
-            sql.push_str(" END, ");
             values.extend(condition_values);
         }
-
-        // Remove the last extra comma and space
-        if sql.ends_with(", ") {
-            sql.truncate(sql.len() - 2);
+    
+        // Add "END" after all WHEN and ELSE clauses
+        sql.push_str(" END");
+    
+        // Add alias if it exists
+        if let Some(alias) = self.alias {
+            sql.push_str(" AS ");
+            sql.push_str(alias);
         }
-
+    
         (sql, values)
     }
 }

@@ -15,7 +15,7 @@ pub trait BuilderTrait<T: Debug + Clone> {
     /// 
     /// # Returns
     /// A new Builder instance.
-    fn new(sql: String, values: Option<Vec<T>>) -> Self;
+    fn new(sql: impl Into<String>, values: Option<Vec<T>>) -> Self;
 
     /// Creates a new SELECT statement.
     /// 
@@ -60,6 +60,15 @@ pub trait BuilderTrait<T: Debug + Clone> {
     /// # Returns
     /// A reference to the Builder instance.
     fn filter(&mut self, clause: Self::FilterClause) -> &mut Self;
+
+    /// Adds a WHERE ... AND clause.
+    /// 
+    /// # Parameters
+    /// - `clause`: The AND clause to add.
+    /// 
+    /// # Returns
+    /// A reference to the Builder instance.
+    fn and(&mut self, clause: Self::FilterClause) -> &mut Self;
 
     /// Adds a WHERE ... OR clause.
     /// 
@@ -107,7 +116,7 @@ pub trait BuilderTrait<T: Debug + Clone> {
     /// 
     /// # Returns
     /// A reference to the Builder instance.
-    fn append(&mut self, sql: &str, bind_values: Option<Vec<T>>) -> &mut Self;
+    fn append(&mut self, sql: impl Into<String>, bind_values: Option<Vec<T>>) -> &mut Self;
 
     /// Adds a CASE WHEN clause to the SQL statement.
     /// 
@@ -126,7 +135,7 @@ pub trait BuilderTrait<T: Debug + Clone> {
     /// # Returns
     /// A reference to the Builder instance.
     fn join<'a>(&mut self, join: Self::Join<'a>) -> &mut Self;
-
+ 
     /// Adds an aggregate query to the SQL statement.
     /// 
     /// # Parameters

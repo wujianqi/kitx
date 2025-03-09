@@ -26,6 +26,11 @@ impl<T: Debug + Clone> FilterClause<T> {
         }
     }
 
+    /// Creates an expression query condition.
+    pub fn expr(expr: impl Into<String>) -> FilterClause<T> {
+        FilterClause { clause: expr.into(), values: vec![] }
+    }
+
     /// Creates an IS NULL or IS NOT NULL query condition.
     fn null_or_not(column: &str, not: bool) -> Self {
         let operator = if not { "IS NOT NULL" } else { "IS NULL" };
@@ -124,6 +129,10 @@ impl<'a, T: Debug + Clone> Field<'a, T> {
     /// - `Field`: Initialized Field instance.
     pub fn get(name: &'a str) -> Self {
         Field { name, _phantom: PhantomData }
+    }
+
+    pub fn expr(self, expr: impl Into<String>) -> FilterClause<T> {
+        FilterClause::expr(expr)
     }
 
     /// Creates an equal condition.

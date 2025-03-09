@@ -27,17 +27,17 @@ A minimalistic SQL builder library based on [sqlx](https://crates.io/crates/sqlx
 
 ### 1. Add Dependency
 ```toml
-# Default SQL Builder
-kitx = "0.0.7"
+# Default SQL Builder, completely decoupled from any external libraries.
+kitx = "0.0.8"
 
 # For SQLite only
-kitx = { version = "0.0.7", features = ["sqlite"] }
+kitx = { version = "0.0.8", features = ["sqlite"] }
 
 # For MySQL/MariaDB only
-kitx = { version = "0.0.7", features = ["mysql"] }
+kitx = { version = "0.0.8", features = ["mysql"] }
 
 # For PostgreSQL only
-kitx = { version = "0.0.7", features = ["postgres"] }
+kitx = { version = "0.0.8", features = ["postgres"] }
 ```
 
 ### 2. Basic Usage
@@ -45,6 +45,7 @@ kitx = { version = "0.0.7", features = ["postgres"] }
 use kitx::sqlite::{sql::QueryBuilder, sql::field, operations::Operations};
 
 // SQL Builder Example
+// AND and OR conditions can be applied either within filter clauses or directly in the builder.
 let query = QueryBuilder::select("users", &["id", "name"])
     .filter(field("age").eq(23))
     .filter(field("salary").gt(4500))

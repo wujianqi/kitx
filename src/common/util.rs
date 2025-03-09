@@ -3,7 +3,7 @@ use std::{any::Any, fmt::Write};
 /// Helper function to recursively unwrap any number of Option layers
 /// and return the inner value if it exists.
 /// This function is useful when dealing with nested Option types.
-/// It can handle Option<Option<T>>, Option<T>, and T types.
+/// It can handle `Option<Option<T>>`, `Option<T>`, and T types.
 pub fn unwrap_option<'a, T: 'static>(value: &'a dyn Any) -> Option<&'a T> {
     if let Some(opt_opt) = value.downcast_ref::<Option<Option<T>>>() {
         return opt_opt.as_ref().and_then(|opt| opt.as_ref());
@@ -16,7 +16,7 @@ pub fn unwrap_option<'a, T: 'static>(value: &'a dyn Any) -> Option<&'a T> {
 }
 
 /// Helper function to check if a value is empty and handle Option types using a closure
-/// It can handle Option<Option<T>>, Option<T>, and T types.
+/// It can handle `Option<Option<T>>`, `Option<T>`, and T types.
 /// It returns true if the value is empty or None, otherwise it returns false.
 pub fn is_empty_or_none(value: &dyn Any) -> bool {
     macro_rules! check_type {
