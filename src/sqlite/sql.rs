@@ -1,5 +1,5 @@
 use crate::common::builder::BuilderCondition;
-use crate::sql::{builder::Builder, filter::FieldValue};
+use crate::sql::{builder::Builder, filter::Field};
 use super::kind::DataKind;
 
 /// SQLite-specific SQL builder.
@@ -14,7 +14,7 @@ pub type QueryCondition<'a> = BuilderCondition<'a, QueryBuilder<'a>>;
 /// - `name`: Field name.
 ///
 /// # Returns
-/// - `FieldValue`: Object to get the field value.
-pub fn field<'a>(name: &'a str) -> FieldValue<'a, DataKind<'a>> {
-    FieldValue::get(name)
+/// - `Field`: Object to get the field value.
+pub fn field<'a>(name: &'a str) -> Field<'a, DataKind<'a>> {
+    Field::get(name)
 }

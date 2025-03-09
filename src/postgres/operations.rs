@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 use field_access::FieldAccess;
-use sqlx::mysql::{MySqlQueryResult, MySqlRow};
-use sqlx::{Error, FromRow, MySql};
+use sqlx::postgres::{PgQueryResult, PgRow};
+use sqlx::{Error, FromRow, Postgres};
 
 use crate::common::builder::BuilderTrait;
 use crate::common::database::DatabaseTrait;
@@ -9,14 +9,14 @@ use crate::common::operations::{OperationsTrait, CursorPaginatedResult, Paginate
 use crate::common::util::check_empty_or_none;
 
 use super::kind::{value_convert, DataKind};
-use super::query::MySqlQuery;
+use super::query::PostgresQuery;
 use super::sql::{field, QueryBuilder, QueryCondition};
 use super::global::{get_global_soft_delete_field, get_global_filter};
 
 /// Data operation structure for performing CRUD operations on database entities.
 pub struct Operations<'a, T>
 where
-    T: for<'r> FromRow<'r, MySqlRow> + FieldAccess + Unpin + Send,
+    T: for<'r> FromRow<'r, PgRow> + FieldAccess + Unpin + Send,
 {
     /// Table name representing the entity's corresponding database table.
     table_name: &'a str,
@@ -25,17 +25,17 @@ where
     /// Phantom data for compile-time type checking.
     _phantom: PhantomData<&'a T>,
 
-    query: MySqlQuery,
+    query: PostgresQuery,
 }
 
-impl<'a, T> OperationsTrait<'a, T, MySql> for Operations<'a, T>
+impl<'a, T> OperationsTrait<'a, T, Postgres> for Operations<'a, T>
 where
-    T: for<'r> FromRow<'r, MySqlRow> + FieldAccess + Unpin + Send + Sync + Default,
+    T: for<'r> FromRow<'r, PgRow> + FieldAccess + Unpin + Send + Sync + Default,
 {
     
     type Query = QueryCondition<'a>;    
     type DataKind = DataKind<'a>;
-    type QueryResult = MySqlQueryResult;
+    type QueryResult = PgQueryResult;
     /// Creates a new instance of `Operations`.
     fn new(table_name: &'a str, primary_key: (&'a str, bool)) -> Self {
         let primary_key = if primary_key.0.is_empty() {
@@ -48,7 +48,7 @@ where
             table_name,
             primary_key,
             _phantom: PhantomData,
-            query: MySqlQuery,
+            query: PostgresQuery,
         }
     }
 
@@ -64,8 +64,6 @@ where
                 cols_values.push(value);
             }
         }
-
-
 
         let query = QueryBuilder::insert_into(self.table_name, &cols_names, vec![cols_values]);
         // Execute the insert query
@@ -216,7 +214,7 @@ where
     /// Restores multiple entities in the database.
     async fn restore_many(&self, keys: Vec<impl Into<DataKind<'a>> + Send>) -> Result<Self::QueryResult, Error> {
         let keys: Vec<DataKind<'a>> = keys.into_iter().map(|k| k.into()).collect();
-        if let Some((column, exclude_tables)) = get_global_soft_delete_field() {
+        if let Some((column, exclude_tables)) = get_global_soft_delete_field() { // 修复拼写错误
             if !exclude_tables.contains(&self.table_name) {
                 let mut query = QueryBuilder::update(self.table_name, &[column], vec![DataKind::from(false)]);
                 query.filter(field(self.primary_key.0).r#in(keys));
@@ -248,7 +246,7 @@ where
         self.query.fetch_optional::<T>(builder).await
     }
 
-    /// Fetches a single entity that matches the query condition.
+    /// Fetches a single entity that match the query condition.
     async fn fetch_one(&self, query_condition: Self::Query) -> Result<Option<T>, Error> {
         let mut builder = QueryBuilder::select(self.table_name, &["*"]);
         query_condition.apply(&mut builder);
@@ -296,7 +294,7 @@ where
         })
     }
 
-    /// Checks if an entity exists that matches the query condition.
+    /// Checks if an entity exists that match the query condition.
     async fn exist(&self, query_condition: Self::Query) -> Result<bool, Error> {
         let mut builder = QueryBuilder::select(self.table_name, &["1"]);
         query_condition.apply(&mut builder);
@@ -320,7 +318,7 @@ where
 
 impl<'a, T> Operations<'a, T>
 where
-    T: for<'r> FromRow<'r, MySqlRow> + FieldAccess + Unpin + Send + Sync + Default,
+    T: for<'r> FromRow<'r, PgRow> + FieldAccess + Unpin + Send + Sync + Default,
 {
     // Applies global filters including soft delete content filtering
     fn apply_global_filters(&self, builder: &mut QueryBuilder<'a>) {
@@ -336,5 +334,4 @@ where
             }
         }
     }
-
 }

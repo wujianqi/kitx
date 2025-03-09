@@ -16,3 +16,13 @@ CREATE TABLE `article` (
 ); 
 */
 
+/* 
+postgresql:
+
+CREATE TABLE "article" (
+  "a_id" SERIAL NOT NULL PRIMARY KEY,
+  "a_class" TEXT,
+  "a_content" TEXT
+);
+*/
+

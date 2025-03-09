@@ -2,9 +2,9 @@ use crate::common::builder::{BuilderCondition, BuilderTrait};
 use crate::sql::{builder::Builder, filter::Field};
 use super::kind::DataKind;
 
-/// MySQL-specific SQL builder.
+/// PostgreSQL-specific SQL builder.
 pub type QueryBuilder<'a> = Builder<DataKind<'a>>;
-/// MySQL-specific SQL condition builder.
+/// PostgreSQL-specific SQL condition builder.
 pub type QueryCondition<'a> = BuilderCondition<'a, QueryBuilder<'a>>;
 
 /// Creates an object for retrieving field values.
@@ -18,26 +18,26 @@ pub fn field<'a>(name: &'a str) -> Field<'a, DataKind<'a>> {
     Field::get(name)
 }
 
-// MySQL-specific methods
+// PostgreSQL-specific methods
 impl<'a> QueryBuilder<'a> {
-    /// Adds an ON DUPLICATE KEY UPDATE clause.
-    pub fn on_duplicate_key_update(
+    /// Adds an ON CONFLICT clause.
+    pub fn on_conflict(
         &mut self,
         table: &str,
         columns: &[&str],
         values: Vec<Vec<DataKind<'a>>>,
         update_columns: &[&str],
-    ) -> &mut Self { // Return &mut Self
+    ) -> &mut Self {
         // Reuse the logic from insert_into to generate the base SQL and parameters
         let mut builder = Builder::insert_into(table, columns, values.clone());
 
-        // Create the ON DUPLICATE KEY UPDATE clause
+        // Create the ON CONFLICT clause
         let update_clause = update_columns
             .iter()
             .map(|col| format!("{} = ?", col))
             .collect::<Vec<String>>()
             .join(", ");
-        let sqlstr = format!(" ON DUPLICATE KEY UPDATE {}", update_clause);
+        let sqlstr = format!(" ON CONFLICT ({}) DO UPDATE SET {}", columns.join(", "), update_clause);
 
         // Add the values to be updated to cols_values
         let mut vals = Vec::new();

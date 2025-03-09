@@ -108,30 +108,22 @@ impl<T: Debug + Clone> FilterClause<T> {
 }
 
 /// Simplifies writing, creates a FilterClause for field value comparison query.
-pub struct FieldValue<'a, T: Debug + Clone> {
+pub struct Field<'a, T: Debug + Clone> {
     /// Field name.
     name: &'a str,
     _phantom: PhantomData<T>,
 }
 
-impl<'a, T: Debug + Clone> FieldValue<'a, T> {
+impl<'a, T: Debug + Clone> Field<'a, T> {
     /// Creates a new FieldValue instance.
     ///
     /// # Parameters
     /// - `name`: Field name.
     ///
     /// # Returns
-    /// - `FieldValue`: Initialized FieldValue instance.
-    fn new(name: &'a str) -> Self {
-        FieldValue { 
-            name,
-            _phantom: PhantomData
-         }
-    }
-
-    /// Public constructor.
+    /// - `Field`: Initialized Field instance.
     pub fn get(name: &'a str) -> Self {
-        Self::new(name)
+        Field { name, _phantom: PhantomData }
     }
 
     /// Creates an equal condition.

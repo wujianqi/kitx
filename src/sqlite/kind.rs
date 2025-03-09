@@ -6,7 +6,7 @@ use sqlx::encode::IsNull;
 use sqlx::{Database, Encode, Sqlite, Type};
 use sqlx::sqlite::SqliteArgumentValue;
 
-use crate::common::util::{check_empty, unwrap_option};
+use crate::common::util::unwrap_option;
 
 /// Enum representing different types of database field values.
 #[derive(Debug, Clone)]
@@ -23,8 +23,6 @@ pub enum DataKind<'a> {
     Blob(Cow<'a, [u8]>),
     /// Null type.
     Null,
-    /// Unsupported type.
-    Unsupported,
 }
 
 impl<'a> Encode<'a, Sqlite> for DataKind<'a> {
@@ -54,8 +52,7 @@ impl<'a> Encode<'a, Sqlite> for DataKind<'a> {
             DataKind::Null => {
                 buf.push(SqliteArgumentValue::Null);
                 Ok(IsNull::Yes)
-            },
-            DataKind::Unsupported => Err("Unsupported data kind cannot be encoded".into()),
+            }
         }
     }
 }
@@ -72,159 +69,49 @@ impl<'a> Type<Sqlite> for DataKind<'a> {
 
 /// Convert any type of value to the `DataKind` enum type.
 pub fn value_convert<'a>(value: &dyn Any) -> DataKind<'a> {
-    if let Some(s) = unwrap_option::<String>(value) {
-        DataKind::Text(Cow::Owned(s.clone()))
-    } else if let Some(s) = unwrap_option::<&str>(value) {
-        DataKind::Text(Cow::Borrowed(s))
-    } else if let Some(i) = unwrap_option::<i64>(value) {
-        DataKind::Integer(*i)
-    } else if let Some(u) = unwrap_option::<u64>(value) {
-        DataKind::Integer(*u as i64)
-    } else if let Some(i) = unwrap_option::<i32>(value) {
-        DataKind::Integer(*i as i64)
-    } else if let Some(u) = unwrap_option::<u32>(value) {
-        DataKind::Integer(*u as i64)
-    } else if let Some(b) = unwrap_option::<bool>(value) {
-        DataKind::Integer(*b as i64)
-    } else if let Some(r) = unwrap_option::<f64>(value) {
-        DataKind::Real(*r)
-    } else if let Some(r) = unwrap_option::<f32>(value) {
-        DataKind::Real(*r as f64)
-    } else if let Some(dt) = unwrap_option::<DateTime<Utc>>(value) {
-        DataKind::DateTime(*dt)
-    } else if let Some(ndt) = unwrap_option::<NaiveDateTime>(value) {
-        DataKind::DateTime(DateTime::from_naive_utc_and_offset(*ndt, Utc))
-    } else if let Some(blob) = unwrap_option::<Vec<u8>>(value) {
-        DataKind::Blob(Cow::Owned(blob.clone()))
-    } else if let Some(blob) = unwrap_option::<&[u8]>(value) {
-        DataKind::Blob(Cow::Borrowed(blob))
-    } else if value.is::<Option<String>>()
-           || value.is::<Option<&str>>()
-           || value.is::<Option<i64>>()
-           || value.is::<Option<u64>>()
-           || value.is::<Option<i32>>()
-           || value.is::<Option<u32>>()
-           || value.is::<Option<bool>>()
-           || value.is::<Option<f64>>()
-           || value.is::<Option<f32>>()
-           || value.is::<Option<DateTime<Utc>>>()
-           || value.is::<Option<NaiveDateTime>>()
-           || value.is::<Option<&[u8]>>()
-           || value.is::<Option<Vec<u8>>>() {
-        DataKind::Null
-    } else {
-        DataKind::Unsupported
+    macro_rules! try_convert {
+        ($($type:ty => $variant:expr),*) => {
+            $(if let Some(v) = unwrap_option::<$type>(value) {
+                return $variant(v);
+            })*
+            return DataKind::Null;
+        };
     }
-}
 
-/// Helper function to determine if a value is empty.
-pub fn is_empty(value: &dyn Any) -> bool {
-    check_empty(value, |value| {
-        if value.is::<Option<String>>()
-        || value.is::<Option<&str>>()
-        || value.is::<Option<i32>>()
-        || value.is::<Option<u32>>()
-        || value.is::<Option<bool>>()
-        || value.is::<Option<f32>>()
-        || value.is::<Option<i64>>()
-        || value.is::<Option<f64>>()
-        || value.is::<Option<DateTime<Utc>>>()
-        || value.is::<Option<NaiveDateTime>>()
-        || value.is::<Option<&[u8]>>()
-        || value.is::<Option<Vec<u8>>>() {
-            return unwrap_option::<()>(value).is_none();
-        }
-        false
-    })
+    try_convert!(
+        String => |v: &String| DataKind::Text(Cow::Owned(v.into())),
+        &str => |v: &'a str| DataKind::Text(Cow::Borrowed(v)),
+        i32 => |v: &i32| DataKind::Integer(*v as i64),
+        i64 => |v: &i64| DataKind::Integer(*v),
+        f32 => |v: &f32| DataKind::Real(*v as f64),
+        f64 => |v: &f64| DataKind::Real(*v),
+        bool => |v: &bool| DataKind::Integer(*v as i64),
+        NaiveDateTime => |v: &NaiveDateTime| DataKind::DateTime(DateTime::from_naive_utc_and_offset(*v, Utc)),
+        DateTime<Utc> => |v: &DateTime<Utc>| DataKind::DateTime(*v),
+        Vec<u8> => |v: &Vec<u8>| DataKind::Blob(Cow::Owned(v.clone())),
+        &[u8] => |v: &'a [u8]| DataKind::Blob(Cow::Borrowed(v))       
+    );
 }
 
 // Implement automatic conversion from common types to DataKind
-impl<'a> From<Cow<'a, str>> for DataKind<'a> {
-    fn from(item: Cow<'a, str>) -> Self {
-        DataKind::Text(item)
-    }
+macro_rules! impl_from {
+    ($type:ty, $variant:expr) => {
+        impl<'a> From<$type> for DataKind<'a> {
+            fn from(item: $type) -> Self {
+                $variant(item)
+            }
+        }
+    };
 }
 
-impl From<String> for DataKind<'_> {
-    fn from(item: String) -> Self {
-        DataKind::Text(Cow::Owned(item))
-    }
-}
-
-impl<'a> From<&'a str> for DataKind<'a> {
-    fn from(item: &'a str) -> Self {
-        DataKind::Text(Cow::Borrowed(item))
-    }
-}
-
-impl From<i32> for DataKind<'_> {
-    fn from(item: i32) -> Self {
-        DataKind::Integer(item as i64)
-    }
-}
-
-impl From<i64> for DataKind<'_> {
-    fn from(item: i64) -> Self {
-        DataKind::Integer(item)
-    }
-}
-
-impl From<bool> for DataKind<'_> {
-    fn from(item: bool) -> Self {
-        DataKind::Integer(item as i64)
-    }
-}
-
-impl From<f32> for DataKind<'_> {
-    fn from(item: f32) -> Self {
-        DataKind::Real(item as f64)
-    }
-}
-
-impl From<f64> for DataKind<'_> {
-    fn from(item: f64) -> Self {
-        DataKind::Real(item)
-    }
-}
-
-impl From<DateTime<Utc>> for DataKind<'_> {
-    fn from(item: DateTime<Utc>) -> Self {
-        DataKind::DateTime(item)
-    }
-}
-
-impl From<NaiveDateTime> for DataKind<'_> {
-    fn from(item: NaiveDateTime) -> Self {
-        DataKind::DateTime(DateTime::from_naive_utc_and_offset(item, Utc))
-    }
-}
-
-impl<'a> From<Cow<'a, [u8]>> for DataKind<'a> {
-    fn from(item: Cow<'a, [u8]>) -> Self {
-        DataKind::Blob(item)
-    }
-}
-
-impl From<Vec<u8>> for DataKind<'_> {
-    fn from(item: Vec<u8>) -> Self {
-        DataKind::Blob(Cow::Owned(item))
-    }
-}
-
-impl<'a> From<&'a [u8]> for DataKind<'a> {
-    fn from(item: &'a [u8]) -> Self {
-        DataKind::Blob(Cow::Borrowed(item))
-    }
-}
-
-impl From<u32> for DataKind<'_> {
-    fn from(item: u32) -> Self {
-        DataKind::Integer(item as i64)
-    }
-}
-
-impl From<u64> for DataKind<'_> {
-    fn from(item: u64) -> Self {
-        DataKind::Integer(item as i64)
-    }
-}
+impl_from!(String, |value: String| DataKind::Text(Cow::Owned(value)));
+impl_from!(&'a str, |value: &'a str| DataKind::Text(Cow::Borrowed(value)));
+impl_from!(Vec<u8>, |value: Vec<u8>| DataKind::Blob(Cow::Owned(value)));
+impl_from!(&'a [u8], |value: &'a [u8]| DataKind::Blob(Cow::Borrowed(value)));
+impl_from!(i32, |value: i32| DataKind::Integer(value as i64));
+impl_from!(i64, DataKind::Integer);
+impl_from!(f32, |value: f32| DataKind::Real(value as f64));
+impl_from!(f64, DataKind::Real);
+impl_from!(bool, |value: bool| DataKind::Integer(value as i64));
+impl_from!(DateTime<Utc>, DataKind::DateTime);
+impl_from!(NaiveDateTime, |value: NaiveDateTime| DataKind::DateTime(DateTime::from_naive_utc_and_offset(value, Utc)));

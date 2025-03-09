@@ -31,9 +31,9 @@ thread_local! {
 ///
 /// # Parameters
 /// - `filter`: A tuple containing the filter clause (`FilterClause<DataKind<'static>>`) and a list of tables to exclude from this filter.
-pub fn set_global_filter(filter: (FilterClause<DataKind<'static>>, Vec<&'static str>)) {
+pub fn set_global_filter(filter: FilterClause<DataKind<'static>>, exclude_tables: Vec<&'static str>) {
     MYSQL_G_F_S.with(|cell| {
-        cell.replace(Some(filter));
+        cell.replace(Some((filter, exclude_tables)));
     });
 }
 

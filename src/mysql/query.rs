@@ -19,8 +19,11 @@ impl DatabaseTrait for MySqlQuery {
     where
         T: for<'r> FromRow<'r, MySqlRow> + Unpin + Send,
     {
-        let pool = self.get_db_pool();
         let (sql, values) = qb.build();
+        if values.is_empty() {
+            return Err(Error::ColumnNotFound("No parameters provided".to_string()));
+        }
+        let pool = self.get_db_pool();        
         let mut query = sqlx::query_as::<_, T>(&sql);
 
         // Bind parameter values to the query
@@ -67,10 +70,14 @@ impl DatabaseTrait for MySqlQuery {
     }
 
     async fn execute<'a>(&self, qb: Self::QueryBuilder<'a>) -> Result<MySqlQueryResult, Error>{
+        let (sql, values) = qb.build();
+        if values.is_empty() {
+            return Err(Error::ColumnNotFound("No parameters provided".to_string()));
+        }
+
         let pool = self.get_db_pool();
         let mut conn = pool.acquire().await?;
-        let mut tx = conn.begin().await?;
-        let (sql, values) = qb.build();
+        let mut tx = conn.begin().await?;        
         let mut query = sqlx::query(&sql);
         
         // Bind parameter values to the query
