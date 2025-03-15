@@ -28,16 +28,16 @@ A minimalistic SQL builder library based on [sqlx](https://crates.io/crates/sqlx
 ### 1. Add Dependency
 ```toml
 # Default SQL Builder, completely decoupled from any external libraries.
-kitx = "0.0.8"
+kitx = "0.0.9"
 
 # For SQLite only
-kitx = { version = "0.0.8", features = ["sqlite"] }
+kitx = { version = "0.0.9", features = ["sqlite"] }
 
 # For MySQL/MariaDB only
-kitx = { version = "0.0.8", features = ["mysql"] }
+kitx = { version = "0.0.9", features = ["mysql"] }
 
 # For PostgreSQL only
-kitx = { version = "0.0.8", features = ["postgres"] }
+kitx = { version = "0.0.9", features = ["postgres"] }
 ```
 
 ### 2. Basic Usage
@@ -49,11 +49,12 @@ use kitx::sqlite::{sql::QueryBuilder, sql::field, operations::Operations};
 let query = QueryBuilder::select("users", &["id", "name"])
     .filter(field("age").eq(23))
     .filter(field("salary").gt(4500))
-    .or(field("status").in_vec(vec!["active", "pending"]))
+    .or(field("status").r#in(vec!["active", "pending"]))
     .order_by("created_at", false)
     .build_mut().0;
 
 // CRUD Operations
+// KitX does not support composite primary keys. For such cases, please use constraints instead.
 let op = Operations::new("articles", ("article_id", true));
 let article = Article {
     id: 42,
@@ -62,7 +63,7 @@ let article = Article {
 };
 
 // Insert with transaction
-op.insert_one(article, true).await?;
+op.insert_one(article).await?;
 ```
 
 ### 3. Pagination Example
@@ -85,4 +86,3 @@ set_global_filter(field("tenant_id").eq(123)), vec!["system_metrics"]);
 
 ## License
 MIT License
-

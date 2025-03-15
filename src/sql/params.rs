@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 use std::borrow::Cow;
-use chrono::{DateTime, Utc};
+use std::time::SystemTime;
 
 /// Defines an enumeration compatible with multiple types
 #[derive(Clone, Debug, Default)]
@@ -9,7 +9,7 @@ pub enum Value<'a> {
     Float(f32),
     Text(Cow<'a, str>),
     Bool(bool),
-    Timestamp(DateTime<Utc>),
+    Timestamp(SystemTime),
     Blob(Cow<'a, [u8]>),
     #[default]
     Null,
@@ -46,11 +46,17 @@ impl<'a> From<bool> for Value<'a> {
     }
 }
 
-impl<'a> From<DateTime<Utc>> for Value<'a> {
-    fn from(value: DateTime<Utc>) -> Self {
+impl<'a> From<SystemTime> for Value<'a> {
+    fn from(value: SystemTime) -> Self {
         Value::Timestamp(value)
     }
 }
+
+/* impl<'a> From<i64> for Value<'a> {
+    fn from(value: i64) -> Self {
+        Value::Timestamp(UNIX_EPOCH + Duration::from_secs(value as u64))
+    }
+} */
 
 impl<'a> From<Vec<u8>> for Value<'a> {
     fn from(value: Vec<u8>) -> Self {

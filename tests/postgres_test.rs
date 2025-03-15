@@ -1,14 +1,14 @@
 mod article;
-#[cfg(any(feature = "postgres"))]
+#[cfg(feature = "postgres")]
 use article::Article;
 
-#[cfg(any(feature = "postgres"))]
+#[cfg(feature = "postgres")]
 fn get_database_url() -> String {
     dotenv::dotenv().ok();
     std::env::var("DATABASE_URL").expect("DATABASE_URL must be set")
 }
 
-#[cfg(any(feature = "postgres"))]
+#[cfg(feature = "postgres")]
 async fn run_op<F, T, E>(operation: F)
 where
     F: AsyncFnOnce() -> Result<T, E>,

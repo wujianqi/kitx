@@ -12,8 +12,8 @@ use kitx::sqlite::sql::{field, QueryBuilder};
 fn sql_test() {
     let query = Builder::select("users", &["id", "name"])
         .filter(Field::<Value>::get("age").eq(23))
-        .filter(Field::<Value>::get("salary").gt(45))
-        .or(Field::<Value>::get("status").r#in(vec!["A", "B"]))
+        .filter(Field::get("salary").gt(45))
+        .or(Field::get("status").r#in(vec!["A", "B"]))
         .order_by("name", true)
         .order_by("age", false)
         .build_mut().0;

@@ -6,6 +6,8 @@ use std::sync::Arc;
 use tokio::sync::OnceCell;
 use std::time::Duration;
 
+use crate::common::util;
+
 static DB_POOL: OnceCell<Arc<MySqlPool>> = OnceCell::const_new();
 
 /// Initializes the database connection pool with custom settings.
@@ -20,27 +22,36 @@ pub async fn init_db_pool_custom(pool: Pool<MySql>) -> Result<&'static MySqlPool
 
 /// Initializes the database connection pool with a database URL.
 pub async fn init_db_pool(database_url: &str) -> Result<&'static MySqlPool, Error> {
-    println!("get_db_pool");
+    let (maxc, minc, warmupc) = util::db_connect_limits(Some(20));
+
     // Configure MySQL connection options
     let connect_options = MySqlConnectOptions::from_str(database_url)? // Parse the database URL
         .ssl_mode(MySqlSslMode::Disabled); // Configure SSL mode as needed
 
     // Create the connection pool with specified options
     let pool = PoolOptions::new()
-        .max_connections(50) // Adjust the maximum number of connections based on load
-        .min_connections(10) // Pre-establish minimum connections to reduce initial request latency
-        .acquire_timeout(Duration::from_secs(5)) // Set the timeout for acquiring a connection
-        .idle_timeout(Duration::from_secs(300)) // Set the timeout for idle connections
-        .max_lifetime(Duration::from_secs(1800)) // Set the maximum lifetime of a connection
+        .max_connections(maxc) // Adjust the maximum number of connections based on load
+        .min_connections(minc) // Pre-establish minimum connections to reduce initial request latency
+        .acquire_timeout(Duration::from_secs(3)) // Set the timeout for acquiring a connection
+        .idle_timeout(Duration::from_secs(60)) // Set the timeout for idle connections
+        .max_lifetime(Duration::from_secs(600)) // Set the maximum lifetime of a connection
         .test_before_acquire(true) // Test the connection before acquiring it
         .connect_with(connect_options)
         .await?;
 
     // Warm up the connection pool by pre-establishing the minimum number of connections
-    let _ = pool.acquire().await;
+    let _ = warmup_connect(&pool, warmupc).await;
 
     // Initialize the connection pool with the created pool
     init_db_pool_custom(pool).await
+}
+
+async fn warmup_connect(pool: &MySqlPool, warmup_num: u32) -> Result<(), Error> {
+    for _ in 0..warmup_num {
+        let conn = pool.acquire().await?;
+        drop(conn);
+    }
+    Ok(())
 }
 
 /// Gets a reference to the database connection pool.

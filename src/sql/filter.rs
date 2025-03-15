@@ -26,59 +26,9 @@ impl<T: Debug + Clone> FilterClause<T> {
         }
     }
 
-    /// Creates an expression query condition.
+    /// Creates an expression query condition without binding any parameter values.
     pub fn expr(expr: impl Into<String>) -> FilterClause<T> {
         FilterClause { clause: expr.into(), values: vec![] }
-    }
-
-    /// Creates an IS NULL or IS NOT NULL query condition.
-    fn null_or_not(column: &str, not: bool) -> Self {
-        let operator = if not { "IS NOT NULL" } else { "IS NULL" };
-        let mut clause = String::with_capacity(column.len() + operator.len() + 1);
-        clause.push_str(column);
-        clause.push_str(" ");
-        clause.push_str(operator);
-        FilterClause {
-            clause,
-            values: Vec::new(),
-        }
-    }
-
-    /// Creates an IN or NOT IN query condition.
-    fn in_or_not_in<I, U>(column: &str, values: I, not: bool) -> Self
-    where
-        I: IntoIterator<Item = U>,
-        U: Into<T>,
-    {
-        let converted_values: Vec<T> = values.into_iter().map(|v| v.into()).collect();
-        let placeholders = vec!["?"; converted_values.len()].join(", ");
-        let operator = if not { "NOT IN" } else { "IN" };
-        let mut clause = String::with_capacity(column.len() + operator.len() + placeholders.len() + 4);
-        clause.push_str(column);
-        clause.push_str(" ");
-        clause.push_str(operator);
-        clause.push_str(" (");
-        clause.push_str(&placeholders);
-        clause.push_str(")");
-        FilterClause {
-            clause,
-            values: converted_values,
-        }
-    }
-
-    /// Creates a BETWEEN query condition.
-    fn between<U, V>(column: &str, value1: U, value2: V) -> Self
-    where
-        U: Into<T>,
-        V: Into<T>,
-    {
-        let mut clause = String::with_capacity(column.len() + 13); // "BETWEEN ? AND ?" length is 13
-        clause.push_str(column);
-        clause.push_str(" BETWEEN ? AND ?");
-        FilterClause {
-            clause,
-            values: vec![value1.into(), value2.into()],
-        }
     }
 
     /// Gets the Filter clause string.
@@ -110,6 +60,7 @@ impl<T: Debug + Clone> FilterClause<T> {
         self.values.extend(other.values);
         self
     }
+
 }
 
 /// Simplifies writing, creates a FilterClause for field value comparison query.
@@ -129,10 +80,6 @@ impl<'a, T: Debug + Clone> Field<'a, T> {
     /// - `Field`: Initialized Field instance.
     pub fn get(name: &'a str) -> Self {
         Field { name, _phantom: PhantomData }
-    }
-
-    pub fn expr(self, expr: impl Into<String>) -> FilterClause<T> {
-        FilterClause::expr(expr)
     }
 
     /// Creates an equal condition.
@@ -212,13 +159,23 @@ impl<'a, T: Debug + Clone> Field<'a, T> {
     pub fn ne(self, value: impl Into<T>) -> FilterClause<T> {
         FilterClause::new(&self.name, "!=", value)
     }
+    
+    /// Creates an IS NULL or IS NOT NULL query condition.
+    fn null_or_not(self, not: bool) -> String {
+        let operator = if not { "IS NOT NULL" } else { "IS NULL" };
+        let mut clause = String::with_capacity(self.name.len() + operator.len() + 1);
+        clause.push_str(self.name);
+        clause.push_str(" ");
+        clause.push_str(operator);
+        clause
+    }
 
     /// Creates an IS NULL condition.
     ///
     /// # Returns
     /// - `FilterClause`: Initialized filter clause builder instance.
     pub fn is_null(self) -> FilterClause<T> {
-        FilterClause::null_or_not(&self.name, false)
+        FilterClause::expr(&self.null_or_not(false))
     }
 
     /// Creates an IS NOT NULL condition.
@@ -226,7 +183,29 @@ impl<'a, T: Debug + Clone> Field<'a, T> {
     /// # Returns
     /// - `FilterClause`: Initialized filter clause builder instance.
     pub fn is_not_null(self) -> FilterClause<T> {
-        FilterClause::null_or_not(&self.name, true)
+        FilterClause::expr(&self.null_or_not(true))
+    }
+
+    /// Creates an IN or NOT IN query condition.
+    fn in_or_not_in<I, U>(column: &str, values: I, not: bool) -> FilterClause<T>
+    where
+        I: IntoIterator<Item = U>,
+        U: Into<T>,
+    {
+        let converted_values: Vec<T> = values.into_iter().map(|v| v.into()).collect();
+        let placeholders = vec!["?"; converted_values.len()].join(", ");
+        let operator = if not { "NOT IN" } else { "IN" };
+        let mut clause = String::with_capacity(column.len() + operator.len() + placeholders.len() + 4);
+        clause.push_str(column);
+        clause.push_str(" ");
+        clause.push_str(operator);
+        clause.push_str(" (");
+        clause.push_str(&placeholders);
+        clause.push_str(")");
+        FilterClause {
+            clause,
+            values: converted_values,
+        }
     }
 
     /// Creates an IN condition.
@@ -241,7 +220,7 @@ impl<'a, T: Debug + Clone> Field<'a, T> {
         I: IntoIterator<Item = U>,
         U: Into<T>,
     {
-        FilterClause::in_or_not_in(&self.name, values, false)
+        Field::<'a, T>::in_or_not_in(&self.name, values, false)
     }
 
     /// Creates a NOT IN condition.
@@ -256,7 +235,7 @@ impl<'a, T: Debug + Clone> Field<'a, T> {
         I: IntoIterator<Item = U>,
         U: Into<T>,
     {
-        FilterClause::in_or_not_in(&self.name, values, true)
+        Field::<'a, T>::in_or_not_in(&self.name, values, true)
     }
 
     /// Creates a BETWEEN condition.
@@ -268,6 +247,12 @@ impl<'a, T: Debug + Clone> Field<'a, T> {
     /// # Returns
     /// - `FilterClause`: Initialized filter clause builder instance.
     pub fn between(self, value1: impl Into<T>, value2: impl Into<T>) -> FilterClause<T> {
-        FilterClause::between(&self.name, value1, value2)
+        let mut clause = String::with_capacity(self.name.len() + 13); // "BETWEEN ? AND ?" length is 13
+        clause.push_str(self.name);
+        clause.push_str(" BETWEEN ? AND ?");
+        FilterClause {
+            clause,
+            values: vec![value1.into(), value2.into()],
+        }
     }
 }

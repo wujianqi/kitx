@@ -1,4 +1,4 @@
-use std::{any::Any, fmt::Write};
+use std::{any::Any, cmp::max, fmt::Write};
 
 /// Helper function to recursively unwrap any number of Option layers
 /// and return the inner value if it exists.
@@ -65,6 +65,19 @@ pub fn replace_placeholders(sql: &str) -> String {
 
     result
 }
+
+/// Calculates the maximum, minimum, and warmup connection limits based on the provided percentage.
+pub fn db_connect_limits(percentage: Option<u32>) -> (u32, u32, u32) {
+    let num_cpus = num_cpus::get() as u32;
+    let max_connections = max(10, num_cpus * 2);
+    let min_connections = num_cpus / 2;
+    let mut warmup_connections = 0;
+    if let Some(perc) = percentage {
+        warmup_connections = (max_connections as f32 * (perc as f32 / 100.0)).ceil() as u32;
+    }    
+    (max_connections, min_connections, warmup_connections)
+}
+
 
 #[cfg(test)]
 mod tests {

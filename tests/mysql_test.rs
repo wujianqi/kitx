@@ -1,14 +1,14 @@
 mod article;
-#[cfg(any(feature = "mysql"))]
+#[cfg(feature = "mysql")]
 use article::Article;
 
-#[cfg(any(feature = "mysql"))]
+#[cfg(feature = "mysql")]
 fn get_database_url() -> String {
     dotenv::dotenv().ok();
     std::env::var("DATABASE_URL").expect("DATABASE_URL must be set")
 }
 
-#[cfg(any(feature = "mysql"))]
+#[cfg(feature = "mysql")]
 async fn run_op<F, T, E>(operation: F)
 where
     F: AsyncFnOnce() -> Result<T, E>,
