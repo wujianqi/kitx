@@ -1,52 +1,86 @@
 use std::fmt::Debug;
-use super::filter::FilterClause;
+use super::filter::Expr;
 
 #[derive(Debug, Clone, Default)]
-pub struct Agg<'a, T: Debug + Clone> {
-    aggregates: Vec<(&'a str, &'a str, Option<&'a str>)>, // (function, column, alias)
-    group_by_columns: Vec<&'a str>,
-    having_conditions: Vec<FilterClause<T>>, // Store HAVING conditions and bound values
+pub struct Agg<T: Debug + Clone> {
+    aggregates: Vec<(String, String, String)>, // (function, column, alias)
+    group_by_columns: Vec<String>,
+    having_conditions: Vec<Expr<T>>, // Store HAVING conditions and bound values
 }
 
-impl<'a, T: Debug + Clone> Agg<'a, T> {
+impl<T: Debug + Clone> Agg<T> {
     /// Adds a COUNT aggregation function
-    pub fn count(mut self, column: &'a str, alias: Option<&'a str>) -> Self {
-        self.aggregates.push(("COUNT", column, alias));
+    /// # Parameters
+    /// - `column`: Column to count
+    /// - `alias`: Alias for the count result
+    ///
+    /// # Returns
+    /// - `Agg`: Updated Agg instance.
+    pub fn count(mut self, column: &str, alias: &str) -> Self {
+        self.aggregates.push(("COUNT".into(), column.into(), alias.into()));
         self
     }
 
     /// Adds a SUM aggregation function
-    pub fn sum(mut self, column: &'a str, alias: Option<&'a str>) -> Self {
-        self.aggregates.push(("SUM", column, alias));
+    /// # Parameters
+    /// - `column`: Column to sum
+    /// - `alias`: Alias for the sum result
+    ///
+    /// # Returns
+    /// - `Agg`: Updated Agg instance.
+    pub fn sum(mut self, column: &str, alias: &str) -> Self {
+        self.aggregates.push(("SUM".into(), column.into(), alias.into()));
         self
     }
 
     /// Adds an AVG aggregation function
-    pub fn avg(mut self, column: &'a str, alias: Option<&'a str>) -> Self {
-        self.aggregates.push(("AVG", column, alias));
+    /// # Parameters
+    /// - `column`: Column to average
+    /// - `alias`: Alias for the average result
+    ///
+    /// # Returns
+    /// - `Agg`: Updated Agg instance.
+    pub fn avg(mut self, column: &str, alias: &str) -> Self {
+        self.aggregates.push(("AVG".into(), column.into(), alias.into()));
         self
     }
 
     /// Adds a MIN aggregation function
-    pub fn min(mut self, column: &'a str, alias: Option<&'a str>) -> Self {
-        self.aggregates.push(("MIN", column, alias));
+    /// # Parameters
+    /// - `column`: Column to find the minimum value of
+    /// - `alias`: Alias for the minimum value
+    ///
+    /// # Returns
+    /// - `Agg`: Updated Agg instance.
+    pub fn min(mut self, column: &str, alias: &str) -> Self {
+        self.aggregates.push(("MIN".into(), column.into(), alias.into()));
         self
     }
 
     /// Adds a MAX aggregation function
-    pub fn max(mut self, column: &'a str, alias: Option<&'a str>) -> Self {
-        self.aggregates.push(("MAX", column, alias));
+    /// # Parameters
+    /// - `column`: Column to find the maximum value of
+    /// - `alias`: Alias for the maximum value
+    ///
+    /// # Returns
+    /// - `Agg`: Updated Agg instance.
+    pub fn max(mut self, column: &str, alias: &str) -> Self {
+        self.aggregates.push(("MAX".into(), column.into(), alias.into()));
         self
     }
 
     /// Adds a GROUP BY clause
-    pub fn group_by(mut self, columns: &[&'a str]) -> Self {
-        self.group_by_columns.extend_from_slice(columns);
+    /// # Parameters
+    /// - `columns`: Columns to group by
+    pub fn group_by(mut self, columns: &[&str]) -> Self {
+        self.group_by_columns.extend(columns.iter().map(|c| c.to_string()));
         self
     }
 
     /// Adds a HAVING condition and binds a value
-    pub fn having(mut self, condition: FilterClause<T>) -> Self
+    /// # Parameters
+    /// - `condition`: Condition to add to the HAVING clause
+    pub fn having(mut self, condition: Expr<T>) -> Self
     where
         T: Clone,
     {
@@ -55,7 +89,7 @@ impl<'a, T: Debug + Clone> Agg<'a, T> {
     }
 
     /// Adds an AND condition to the existing having
-    pub fn and(mut self, condition: FilterClause<T>) -> Self {
+    pub fn and(mut self, condition: Expr<T>) -> Self {
         if let Some(existing_filter) = self.having_conditions.last_mut() {
             *existing_filter = existing_filter.clone().and(condition);
         } else {
@@ -65,7 +99,7 @@ impl<'a, T: Debug + Clone> Agg<'a, T> {
     }
 
     /// Adds an OR condition to the existing filter
-    pub fn or(mut self, condition: FilterClause<T>) -> Self {
+    pub fn or(mut self, condition: Expr<T>) -> Self {
         if let Some(existing_filter) = self.having_conditions.last_mut() {
             *existing_filter = existing_filter.clone().or(condition);
         } else {
@@ -74,13 +108,9 @@ impl<'a, T: Debug + Clone> Agg<'a, T> {
         self
     }
 
-
-    /// Builds the final SQL statement and parameter values
-    pub fn build(self, base_sql: &str) -> (String, Vec<T>) {
-        // Pre-allocate sufficient capacity
-        let mut sql = String::with_capacity(256);    
-        sql.push_str(base_sql);
-    
+    /// Builds the SQL for the aggregation functions
+    pub fn build_aggregates(&self) -> String {
+        let mut sql = String::with_capacity(128);
         // Add aggregation functions
         for (func, column, alias) in &self.aggregates {
             sql.push_str(", ");
@@ -88,20 +118,27 @@ impl<'a, T: Debug + Clone> Agg<'a, T> {
             sql.push('(');
             sql.push_str(column);
             sql.push(')');
-            if let Some(alias) = alias {
-                sql.push_str(" AS ");
-                sql.push_str(alias);
-            }
+            sql.push_str(" AS ");
+            sql.push_str(alias);
         }
-    
+        sql
+    }
+
+    /// Builds the SQL for the GROUP BY and HAVING clauses
+    pub fn build_group_having(self) -> Option<(String, Vec<T>)> {
+        if self.group_by_columns.is_empty() && self.having_conditions.is_empty() {
+            return None;
+        }
+        let mut sql = String::with_capacity(128);
+        let mut all_values = Vec::new();
+
         // Add GROUP BY clause
         if !self.group_by_columns.is_empty() {
             sql.push_str(" GROUP BY ");
             sql.push_str(&self.group_by_columns.join(", "));
         }
-    
+
         // Add HAVING clause and extract parameter values
-        let mut all_values = Vec::new(); // 初始化参数值列表
         if !self.having_conditions.is_empty() {
             sql.push_str(" HAVING ");
             let mut first = true;
@@ -111,11 +148,12 @@ impl<'a, T: Debug + Clone> Agg<'a, T> {
                 }
                 let (clause_sql, clause_values) = clause.build();
                 sql.push_str(&clause_sql);
-                all_values.extend(clause_values); // 合并参数值
+                all_values.extend(clause_values);
                 first = false;
             }
         }
-    
-        (sql, all_values)
+
+        Some((sql, all_values))
     }
+
 }

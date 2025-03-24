@@ -1,16 +1,28 @@
-use std::{fmt::Debug, marker::PhantomData};
+use std::fmt::Debug;
+
+use crate::common::builder::BuilderTrait;
+
+use super::select::SelectBuilder;
 
 /// Filter query clause builder, used to create query conditions.
 #[derive(Default, Debug, Clone)]
-pub struct FilterClause<T: Debug + Clone> {
+pub struct Expr<T: Debug + Clone> {
     /// Stores condition string.
     clause: String,
     /// Stores parameter values.
     values: Vec<T>,
 }
 
-impl<T: Debug + Clone> FilterClause<T> {
+impl<T: Debug + Clone> Expr<T> {
     /// Creates a new Filter builder with a specific operator.
+    /// 
+    /// # Parameters
+    /// - `column`: Column name.
+    /// - `op`: Operator.
+    /// - `value`: Parameter value.
+    ///
+    /// # Returns
+    /// - `Expr`: Initialized filter clause builder instance.
     pub fn new<U>(column: &str, op: &str, value: U) -> Self
     where
         U: Into<T>,
@@ -20,15 +32,15 @@ impl<T: Debug + Clone> FilterClause<T> {
         clause.push_str(" ");
         clause.push_str(op);
         clause.push_str(" ?");
-        FilterClause {
+        Expr {
             clause,
             values: vec![value.into()],
         }
     }
 
-    /// Creates an expression query condition without binding any parameter values.
-    pub fn expr(expr: impl Into<String>) -> FilterClause<T> {
-        FilterClause { clause: expr.into(), values: vec![] }
+    /// Creates an Exprression query condition without binding any parameter values.
+    pub fn from_str(expr: impl Into<String>) -> Self {
+        Expr { clause: expr.into(), values: vec![] }
     }
 
     /// Gets the Filter clause string.
@@ -39,47 +51,109 @@ impl<T: Debug + Clone> FilterClause<T> {
         (self.clause, self.values)
     }
 
-    /// Combines multiple FilterClause using AND connection.
-    pub fn and(mut self, other: FilterClause<T>) -> Self {
+    fn and_or(&mut self, other: Expr<T>, op: &str) -> &mut Self {
         let mut new_clause = String::with_capacity(self.clause.len() + other.clause.len() + 5);
         new_clause.push_str(&self.clause);
-        new_clause.push_str(" AND ");
+        new_clause.push_str(op);
         new_clause.push_str(&other.clause);
         self.clause = new_clause;
         self.values.extend(other.values);
         self
     }
 
-    /// Combines multiple FilterClause using OR connection.
-    pub fn or(mut self, other: FilterClause<T>) -> Self {
-        let mut new_clause = String::with_capacity(self.clause.len() + other.clause.len() + 4);
-        new_clause.push_str(&self.clause);
-        new_clause.push_str(" OR ");
-        new_clause.push_str(&other.clause);
-        self.clause = new_clause;
-        self.values.extend(other.values);
+    /// Combines multiple Expr using AND connection.
+    /// 
+    /// # Returns
+    /// - `Expr<T>`: A new Expr instance with the combined conditions.
+    pub fn and(mut self, other: Expr<T>) -> Self {
+        self.and_or(other, " AND ");
+        self
+    }
+    
+    
+    /// Combines multiple Expr using OR connection.
+    /// 
+    /// # Returns
+    /// - `Expr<T>`: A new Expr instance with the combined conditions.
+    pub fn or(mut self, other: Expr<T>) -> Self {
+        self.and_or(other, " OR ");
         self
     }
 
-}
+    fn add_subquery(&mut self, subquery: SelectBuilder<T>, op: &str) -> &mut Self {
+        let (subquery_sql, subquery_values) = subquery.build();
+        self.clause.push_str(op);
+        self.clause.push_str("(");
+        self.clause.push_str(&subquery_sql);
+        self.clause.push_str(")");
+        self.values.extend(subquery_values);
+        self
+    }
 
-/// Simplifies writing, creates a FilterClause for field value comparison query.
-pub struct Field<'a, T: Debug + Clone> {
-    /// Field name.
-    name: &'a str,
-    _phantom: PhantomData<T>,
-}
-
-impl<'a, T: Debug + Clone> Field<'a, T> {
-    /// Creates a new FieldValue instance.
+    /// Creates an IN subquery condition.
     ///
-    /// # Parameters
-    /// - `name`: Field name.
+    /// # Arguments
+    /// * `subquery` - The subquery to be used in the IN condition.
     ///
     /// # Returns
-    /// - `Field`: Initialized Field instance.
-    pub fn get(name: &'a str) -> Self {
-        Field { name, _phantom: PhantomData }
+    /// - `Expr<T>`: A new Expr instance with the IN subquery condition.
+    pub fn in_subquery(mut self, column: &str, subquery: SelectBuilder<T>) -> Self {
+        self.clause.push_str(" ");
+        self.clause.push_str(column);
+        self.add_subquery(subquery, " IN ");
+        self
+    }
+
+    /// Creates an EXISTS subquery condition.
+    ///
+    /// # Arguments
+    /// * `subquery` - The subquery to be used in the EXISTS condition.
+    ///
+    /// # Returns
+    /// - `Expr<T>`: A new Expr instance with the EXISTS subquery condition.
+    pub fn exists(mut self, subquery: SelectBuilder<T>) -> Self {
+        self.add_subquery(subquery, " EXISTS ");
+        self
+    }
+
+    /// Creates a NOT EXISTS subquery condition.
+    ///
+    /// # Arguments
+    /// * `subquery` - The subquery to be used in the NOT EXISTS condition.
+    ///
+    /// # Returns
+    /// - `Expr<T>`: A new Expr instance with the NOT EXISTS subquery condition.
+    pub fn not_exists(mut self, subquery: SelectBuilder<T>) -> Self {
+        self.add_subquery(subquery, " NOT EXISTS ");
+        self
+    }
+
+    /// Creates a new Expr with a specific column name.
+    /// 
+    /// # Parameters
+    /// - `column`: Column name.
+    ///
+    /// # Returns
+    /// - `ColumnExpr`: Initialized filter clause builder instance.
+    pub fn col<'a>(column: &'a str) -> ColumnExpr<T> {
+        ColumnExpr { inner: Self::from_str(column)}
+    }
+
+}
+
+/// Simplifies writing, creates a Expr for field value comparison query.
+pub struct ColumnExpr<T: Debug + Clone> {
+    inner: Expr<T>,
+}
+
+impl<T: Debug + Clone> ColumnExpr<T> {
+
+    fn with(mut self, op: &str, value: impl Into<T>) -> Expr<T> {
+        self.inner.clause.push_str(" ");
+        self.inner.clause.push_str(op);
+        self.inner.clause.push_str(" ?");
+        self.inner.values.push(value.into());
+        self.inner
     }
 
     /// Creates an equal condition.
@@ -88,10 +162,10 @@ impl<'a, T: Debug + Clone> Field<'a, T> {
     /// - `value`: Parameter value.
     ///
     /// # Returns
-    /// - `FilterClause`: Initialized filter clause builder instance.
-    pub fn eq(self, value: impl Into<T>) -> FilterClause<T> 
+    /// - `Expr`: Initialized filter clause builder instance.
+    pub fn eq(self, value: impl Into<T>) -> Expr<T> 
     {
-        FilterClause::new(&self.name, "=", value)
+        self.with("=", value)
     }
 
     /// Creates a greater than condition.
@@ -100,9 +174,9 @@ impl<'a, T: Debug + Clone> Field<'a, T> {
     /// - `value`: Parameter value.
     ///
     /// # Returns
-    /// - `FilterClause`: Initialized filter clause builder instance.
-    pub fn gt(self, value: impl Into<T>) -> FilterClause<T> {
-        FilterClause::new(&self.name, ">", value)
+    /// - `Expr`: Initialized filter clause builder instance.
+    pub fn gt(self, value: impl Into<T>) -> Expr<T> {
+        self.with(">", value)
     }
 
     /// Creates a less than condition.
@@ -111,9 +185,9 @@ impl<'a, T: Debug + Clone> Field<'a, T> {
     /// - `value`: Parameter value.
     ///
     /// # Returns
-    /// - `FilterClause`: Initialized filter clause builder instance.
-    pub fn lt(self, value: impl Into<T>) -> FilterClause<T> {
-        FilterClause::new(&self.name, "<", value)
+    /// - `Expr`: Initialized filter clause builder instance.
+    pub fn lt(self, value: impl Into<T>) -> Expr<T> {
+        self.with("<", value)
     }
 
     /// Creates a greater than or equal condition.
@@ -122,9 +196,9 @@ impl<'a, T: Debug + Clone> Field<'a, T> {
     /// - `value`: Parameter value.
     ///
     /// # Returns
-    /// - `FilterClause`: Initialized filter clause builder instance.
-    pub fn gte(self, value: impl Into<T>) -> FilterClause<T> {
-        FilterClause::new(&self.name, ">=", value)
+    /// - `Expr`: Initialized filter clause builder instance.
+    pub fn gte(self, value: impl Into<T>) -> Expr<T> {
+        self.with(">=", value)
     }
 
     /// Creates a less than or equal condition.
@@ -133,9 +207,9 @@ impl<'a, T: Debug + Clone> Field<'a, T> {
     /// - `value`: Parameter value.
     ///
     /// # Returns
-    /// - `FilterClause`: Initialized filter clause builder instance.
-    pub fn lte(self, value: impl Into<T>) -> FilterClause<T> {
-        FilterClause::new(&self.name, "<=", value)
+    /// - `Expr`: Initialized filter clause builder instance.
+    pub fn lte(self, value: impl Into<T>) -> Expr<T> {
+        self.with("<=", value)
     }
 
     /// Creates a LIKE condition.
@@ -144,9 +218,9 @@ impl<'a, T: Debug + Clone> Field<'a, T> {
     /// - `value`: Parameter value.
     ///
     /// # Returns
-    /// - `FilterClause`: Initialized filter clause builder instance.
-    pub fn like(self, value: impl Into<T>) -> FilterClause<T> {
-        FilterClause::new(&self.name, "LIKE", value)
+    /// - `Expr`: Initialized filter clause builder instance.
+    pub fn like(self, value: impl Into<T>) -> Expr<T> {
+        self.with("LIKE", value)
     }
 
     /// Creates a not equal condition.
@@ -155,39 +229,37 @@ impl<'a, T: Debug + Clone> Field<'a, T> {
     /// - `value`: Parameter value.
     ///
     /// # Returns
-    /// - `FilterClause`: Initialized filter clause builder instance.
-    pub fn ne(self, value: impl Into<T>) -> FilterClause<T> {
-        FilterClause::new(&self.name, "!=", value)
+    /// - `Expr`: Initialized filter clause builder instance.
+    pub fn ne(self, value: impl Into<T>) -> Expr<T> {
+        self.with("!=", value)
     }
     
     /// Creates an IS NULL or IS NOT NULL query condition.
-    fn null_or_not(self, not: bool) -> String {
+    fn null_or_not(mut self, not: bool) -> Expr<T> {
         let operator = if not { "IS NOT NULL" } else { "IS NULL" };
-        let mut clause = String::with_capacity(self.name.len() + operator.len() + 1);
-        clause.push_str(self.name);
-        clause.push_str(" ");
-        clause.push_str(operator);
-        clause
+        self.inner.clause.push_str(" ");
+        self.inner.clause.push_str(operator);
+        self.inner
     }
 
     /// Creates an IS NULL condition.
     ///
     /// # Returns
-    /// - `FilterClause`: Initialized filter clause builder instance.
-    pub fn is_null(self) -> FilterClause<T> {
-        FilterClause::expr(&self.null_or_not(false))
+    /// - `Expr`: Initialized filter clause builder instance.
+    pub fn is_null(self) -> Expr<T> {
+        self.null_or_not(false)
     }
 
     /// Creates an IS NOT NULL condition.
     ///
     /// # Returns
-    /// - `FilterClause`: Initialized filter clause builder instance.
-    pub fn is_not_null(self) -> FilterClause<T> {
-        FilterClause::expr(&self.null_or_not(true))
+    /// - `Expr`: Initialized filter clause builder instance.
+    pub fn is_not_null(self) -> Expr<T> {
+        self.null_or_not(true)
     }
 
     /// Creates an IN or NOT IN query condition.
-    fn in_or_not_in<I, U>(column: &str, values: I, not: bool) -> FilterClause<T>
+    fn in_or_not_in<I, U>(mut self, values: I, not: bool) -> Expr<T>
     where
         I: IntoIterator<Item = U>,
         U: Into<T>,
@@ -195,17 +267,13 @@ impl<'a, T: Debug + Clone> Field<'a, T> {
         let converted_values: Vec<T> = values.into_iter().map(|v| v.into()).collect();
         let placeholders = vec!["?"; converted_values.len()].join(", ");
         let operator = if not { "NOT IN" } else { "IN" };
-        let mut clause = String::with_capacity(column.len() + operator.len() + placeholders.len() + 4);
-        clause.push_str(column);
-        clause.push_str(" ");
-        clause.push_str(operator);
-        clause.push_str(" (");
-        clause.push_str(&placeholders);
-        clause.push_str(")");
-        FilterClause {
-            clause,
-            values: converted_values,
-        }
+        self.inner.clause.push_str(" ");
+        self.inner.clause.push_str(operator);
+        self.inner.clause.push_str(" (");
+        self.inner.clause.push_str(&placeholders);
+        self.inner.clause.push_str(")");
+        self.inner.values = converted_values;
+        self.inner
     }
 
     /// Creates an IN condition.
@@ -214,13 +282,13 @@ impl<'a, T: Debug + Clone> Field<'a, T> {
     /// - `values`: Parameter values list.
     ///
     /// # Returns
-    /// - `FilterClause`: Initialized filter clause builder instance.
-    pub fn r#in<I, U>(self, values: I) -> FilterClause<T>
+    /// - `Expr`: Initialized filter clause builder instance.
+    pub fn in_<I, U>(self, values: I) -> Expr<T>
     where
         I: IntoIterator<Item = U>,
         U: Into<T>,
     {
-        Field::<'a, T>::in_or_not_in(&self.name, values, false)
+        self.in_or_not_in(values, false)
     }
 
     /// Creates a NOT IN condition.
@@ -229,13 +297,13 @@ impl<'a, T: Debug + Clone> Field<'a, T> {
     /// - `values`: Parameter values list.
     ///
     /// # Returns
-    /// - `FilterClause`: Initialized filter clause builder instance.
-    pub fn not_in<I, U>(self, values: I) -> FilterClause<T>
+    /// - `Expr`: Initialized filter clause builder instance.
+    pub fn not_in<I, U>(self, values: I) -> Expr<T>
     where
         I: IntoIterator<Item = U>,
         U: Into<T>,
     {
-        Field::<'a, T>::in_or_not_in(&self.name, values, true)
+        self.in_or_not_in(values, true)
     }
 
     /// Creates a BETWEEN condition.
@@ -245,14 +313,12 @@ impl<'a, T: Debug + Clone> Field<'a, T> {
     /// - `value2`: Second parameter value.
     ///
     /// # Returns
-    /// - `FilterClause`: Initialized filter clause builder instance.
-    pub fn between(self, value1: impl Into<T>, value2: impl Into<T>) -> FilterClause<T> {
-        let mut clause = String::with_capacity(self.name.len() + 13); // "BETWEEN ? AND ?" length is 13
-        clause.push_str(self.name);
-        clause.push_str(" BETWEEN ? AND ?");
-        FilterClause {
-            clause,
-            values: vec![value1.into(), value2.into()],
-        }
+    /// - `Expr`: Initialized filter clause builder instance.
+    pub fn between(mut self, value1: impl Into<T>, value2: impl Into<T>) -> Expr<T> {
+        self.inner.clause.push_str(" ");
+        self.inner.clause.push_str(" BETWEEN ? AND ?");
+        self.inner.values.push(value1.into());
+        self.inner.values.push(value2.into());
+        self.inner
     }
 }

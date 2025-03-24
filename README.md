@@ -6,16 +6,20 @@ A minimalistic SQL builder library based on [sqlx](https://crates.io/crates/sqlx
 
 ### Core Functionality
 - **Efficient CRUD Operations**  
-  `insert_one`, `insert_many`, `update_one`, `update_many`, `delete_one`, `delete_many` with transaction support
+  `insert_one`, `insert_many`, `update_by_key`, `update_one`, `upsert_by_key`,  
+  `upsert_many`, `delete_by_key`, `delete_by_cond`, `delete_many`  
+   with transaction support
 
 - **Advanced Queries**  
-  `fetch_all`, `fetch_by_key`, `fetch_one`, `fetch_paginated`, `fetch_by_cursor`, `exists`, `count`
+  `get_list`, `get_by_key`, `get_one`, `get_list_paginated`, `get_list_by_cursor`,  
+  `exists`, `count`
 
 - **Soft Delete Management**  
-  `restore_one`, `restore_many` with global configuration
+  `restore_one`, `restore_many`  
+  with global configuration
 
 - **Flexible Query Building**  
-  Supports JOINs, CASE WHEN, aggregations, and custom SQL extensions
+  Supports JOINs, CASE WHEN, and aggregations. Provides native support for ON CONFLICT/DUPLICATE KEY (upsert) and RETURNING, enabling conflict resolution and data retrieval.
 
 ### Key Advantages
 - 🚀 **No ORM Overhead** - Direct SQL interaction with builder pattern  
@@ -42,22 +46,28 @@ kitx = { version = "0.0.9", features = ["postgres"] }
 
 ### 2. Basic Usage
 ```rust
-use kitx::sqlite::{sql::QueryBuilder, sql::field, operations::Operations};
+use kitx::sqlite::{sql::Select, sql::Insert, sql::col, operations::Operations};
 
 // SQL Builder Example
 // AND and OR conditions can be applied either within filter clauses or directly in the builder.
-let query = QueryBuilder::select("users", &["id", "name"])
-    .filter(field("age").eq(23))
-    .filter(field("salary").gt(4500))
-    .or(field("status").r#in(vec!["active", "pending"]))
+let query = Select::columns(&["id", "name"])
+    .from("users")
+    .where_(col("age").eq(23))
+    .and(col("salary").gt(4500))
+    .or(col("status").in_(vec!["active", "pending"]))
     .order_by("created_at", false)
-    .build_mut().0;
+    .build().0;
+
+let query2 = Insert::into("users")
+    .columns(&["id", "name"])
+    .values(&[22, "John Doe"])
+    .build().0;
 
 // CRUD Operations
 // KitX does not support composite primary keys. For such cases, please use constraints instead.
 let op = Operations::new("articles", ("article_id", true));
 let article = Article {
-    id: 42,
+    id: 22,
     title: "Rust Best Practices".into(),
     content: "...".into(),
 };
@@ -68,9 +78,11 @@ op.insert_one(article).await?;
 
 ### 3. Pagination Example
 ```rust
-let results = op.fetch_paginated(10, 2, QueryCondition.empty()).await?;
+let results = op.get_list_paginated(10, 2, empty_query()).await?;
 
-let results = op.fetch_by_cursor(10, QueryCondition.from(..)).await?;
+let results = op.get_list_by_cursor(10, Some(|&mut builder|{
+    builder.where_mut(col("created_at").gt(DateTime::now()));
+})).await?;
 
 ```
 

@@ -1,11 +1,17 @@
-use crate::common::builder::{BuilderCondition, BuilderTrait};
-use crate::sql::{builder::Builder, filter::Field};
+use crate::sql::{
+    delete::DeleteBuilder, 
+    filter::{ColumnExpr, Expr}, 
+    insert::InsertBuilder, 
+    select::SelectBuilder, 
+    update::UpdateBuilder
+};
+
 use super::kind::DataKind;
 
-/// MySQL-specific SQL builder.
-pub type QueryBuilder<'a> = Builder<DataKind<'a>>;
-/// MySQL-specific SQL condition builder.
-pub type QueryCondition<'a> = BuilderCondition<'a, QueryBuilder<'a>>;
+pub type Select<'a> = SelectBuilder<DataKind<'a>>;
+pub type Insert<'a> = InsertBuilder<DataKind<'a>>;
+pub type Update<'a> = UpdateBuilder<DataKind<'a>>;
+pub type Delete<'a> = DeleteBuilder<DataKind<'a>>;
 
 /// Creates an object for retrieving field values.
 ///
@@ -14,59 +20,31 @@ pub type QueryCondition<'a> = BuilderCondition<'a, QueryBuilder<'a>>;
 ///
 /// # Returns
 /// - `Field`: Object for retrieving field values.
-pub fn field<'a>(name: &'a str) -> Field<'a, DataKind<'a>> {
-    Field::get(name)
+pub fn col<'a>(name: &'a str) -> ColumnExpr<DataKind<'a>> {
+    Expr::col(name)
 }
 
 // MySQL-specific methods
-impl<'a> QueryBuilder<'a> {
+impl<'a> Insert<'a> {
     /// Adds an ON DUPLICATE KEY UPDATE clause.
     pub fn on_duplicate_key_update(
-        &mut self,
-        table: &str,
-        columns: &[&str],
-        values: Vec<Vec<DataKind<'a>>>,
+        self,
         update_columns: &[&str],
-    ) -> &mut Self { // Return &mut Self
-        // Reuse the logic from insert_into to generate the base SQL and parameters
-        let mut builder = Builder::insert_into(table, columns, values.clone());
+    ) -> Self {
+        let mut sql = String::with_capacity(64);
+        sql.push_str(" ON DUPLICATE KEY UPDATE ");
 
-        // Create the ON DUPLICATE KEY UPDATE clause
-        let update_clause = update_columns
-            .iter()
-            .map(|col| format!("{} = ?", col))
-            .collect::<Vec<String>>()
-            .join(", ");
-        let sqlstr = format!(" ON DUPLICATE KEY UPDATE {}", update_clause);
-
-        // Add the values to be updated to cols_values
-        let mut vals = Vec::new();
-        for row in &values {
-            for col in update_columns {
-                if let Some(index) = columns.iter().position(|&c| c == *col) {
-                    vals.push(row[index].clone());
-                }
+        for (i, column) in update_columns.iter().enumerate() {
+            if i > 0 {
+                sql.push_str(", ");
             }
+            sql.push_str(column);
+            sql.push_str(" = VALUES(");
+            sql.push_str(column);
+            sql.push_str(")");
         }
-
-        // Add the SQL and parameters to the builder
-        builder.append(&sqlstr, Some(vals));
-
-        // Return a mutable reference to the current builder
-        self
+    
+        self.append(sql, None)
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_insert() {
-        let values = vec![
-            vec!["John".into(), "30".into()]
-        ];
-        let builder = QueryBuilder::insert_into("users", &["name", "age"], values);
-        assert_eq!(builder.build().0, "INSERT INTO users ( name, age ) VALUES (?, ?)");
-    }
-}

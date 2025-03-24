@@ -1,35 +1,101 @@
-use kitx::common::builder::BuilderTrait;
-use kitx::sql::filter::{Field, FilterClause};
-use kitx::sql::{builder::Builder, params::Value};
+use std::borrow::Cow;
+
+use kitx::common::builder::{BuilderTrait, FilterTrait};
+use kitx::sql::delete::DeleteBuilder;
+use kitx::sql::insert::InsertBuilder;
+use kitx::sql::params::Value;
+use kitx::sql::update::UpdateBuilder;
+
+use kitx::sql::filter::Expr;
+
+use kitx::sql::select::SelectBuilder;
 use kitx::sql::join::Join;
 use kitx::sql::agg::Agg;
-use kitx::sql::case_when::WhenClause;
-
-#[cfg(feature = "sqlite")]
-use kitx::sqlite::sql::{field, QueryBuilder};
+use kitx::sql::case_when::CW;
 
 #[test]
-fn sql_test() {
-    let query = Builder::select("users", &["id", "name"])
-        .filter(Field::<Value>::get("age").eq(23))
-        .filter(Field::get("salary").gt(45))
-        .or(Field::get("status").r#in(vec!["A", "B"]))
+fn select_test() {
+    let query = SelectBuilder::columns(&["id", "name"])
+        .from("users")
+        .where_(Expr::<Value>::col("age").eq(23))
+        .and(Expr::col("salary").gt(45))
+        .or(Expr::col("status").in_(vec!["A", "B"]))
         .order_by("name", true)
         .order_by("age", false)
-        .build_mut().0;
+        .build().0;
 
     assert_eq!(query, "SELECT id, name FROM users WHERE age = ? AND salary > ? OR status IN (?, ?) ORDER BY name ASC, age DESC");
 }
 
 #[test]
+fn select_with_limit_offset_test() {
+    let builder = SelectBuilder::<Value>::columns(&["id", "name"])
+        .from("users")
+        .limit_offset(10, Some(5));
+
+    //let query = builder.build().0;
+    //assert_eq!(query, "SELECT id, name FROM users LIMIT ? OFFSET ?");
+
+    let mut bd = builder;
+        bd.where_mut(Expr::col("salary").gt(25));
+
+    assert_eq!(bd.build().0, "SELECT id, name FROM users WHERE salary > ? LIMIT ? OFFSET ?");
+}
+
+#[test]
+fn insert_test() {
+    let query = InsertBuilder::into("users")
+        .columns(&["name", "age"])
+        .values(vec![
+            vec![
+                Value::Text(Cow::Borrowed("John")),
+                Value::Int(30),
+            ],
+            vec![
+                Value::Text(Cow::Borrowed("Jane")),
+                Value::Int(25),
+            ],
+        ])
+        .build().0;
+
+    assert_eq!(query, "INSERT INTO users (name, age) VALUES (?, ?), (?, ?)");
+}
+
+#[test]
+fn update_test() {
+    let query = UpdateBuilder::<Value>::table("users")
+        .set_cols(&["name", "age"], vec![
+            Value::Text(Cow::Borrowed("John")),
+            Value::Int(30),
+        ],)
+        .where_(Expr::col("age").eq(23))
+        .and(Expr::col("salary").gt(45))
+        .or(Expr::col("status").in_(vec!["A", "B"]))
+        .build().0;
+
+    assert_eq!(query, "UPDATE users SET name = ?, age = ? WHERE age = ? AND salary > ? OR status IN (?, ?)");
+}
+#[test]
+fn delete_test() {
+    let query = DeleteBuilder::<Value>::from("users")
+        .where_(Expr::<Value>::col("age").eq(23))
+        .and(Expr::col("salary").gt(45))
+        .or(Expr::col("status").in_(vec!["A", "B"]))
+        .build().0;
+
+    assert_eq!(query, "DELETE FROM users WHERE age = ? AND salary > ? OR status IN (?, ?)");    
+}
+
+#[test]
 fn test_join() {
     // Test INNER JOIN with ON condition
-    let sql = Builder::select("users", &["id", "name"])
-        .filter(FilterClause::<Value>::new("users.age", "=", 25))
+    let sql = SelectBuilder::columns(&["id", "name"])
+        .from("users")
+        .where_(Expr::<Value>::new("users.age", "=", 25))
         .join(Join::inner("orders")
-            .on(FilterClause::expr("users.id = orders.user_id")
-            .and(FilterClause::expr("users.name = orders.user_name"))
-    )).build_mut().0;
+            .on(Expr::from_str("users.id = orders.user_id")
+            .and(Expr::from_str("users.name = orders.user_name"))
+    )).build().0;
 
     assert_eq!(
         sql, 
@@ -39,33 +105,37 @@ fn test_join() {
 
 #[test]
 fn test_aggregate_functions() {
-    let sql = Builder::select("users", &[])
+    let sql = SelectBuilder::columns(&["department"])
         .aggregate(Agg::<Value>::default()
-            .count("id", Some("total_users"))
-            .sum("age", Some("total_age"))
-            .avg("age", Some("avg_age"))
-            .min("age", Some("min_age"))
-            .max("age", Some("max_age"))
+            .count("id", "total_users")
+            .sum("age", "total_age")
+            .avg("age", "avg_age")
+            .min("age", "min_age")
+            .max("age", "max_age")
             .group_by(&["department"])
-            .having(FilterClause::new("COUNT(id)", ">", 10))
-        ).build_mut().0;
+            .having(Expr::col("COUNT(id)").gt(10))
+        )
+        .from("users")
+        .where_(Expr::col("age").lt(18))
+        .build().0;
 
     assert_eq!(
         sql,
-        "SELECT * FROM users, COUNT(id) AS total_users, SUM(age) AS total_age, AVG(age) AS avg_age, MIN(age) AS min_age, MAX(age) AS max_age GROUP BY department HAVING COUNT(id) > ?"
+        "SELECT department, COUNT(id) AS total_users, SUM(age) AS total_age, AVG(age) AS avg_age, MIN(age) AS min_age, MAX(age) AS max_age FROM users WHERE age < ? GROUP BY department HAVING COUNT(id) > ?"
     );
 }
 
 #[test]
 fn test_case_when_builder() {
-    let sql = Builder::new("SELECT id, name,", None)
-        .case_when(WhenClause::<Value>::case()
-            .when(FilterClause::new("age", ">", 18), "adult")
-            .when(FilterClause::new("age", "<=", 18)
-                .and(FilterClause::new("age", ">", 12)),"teenager")
+    let sql = SelectBuilder::columns(&["id, name"])
+        .case_when(CW::<Value>::case()
+            .when(Expr::col("age").gt(18), "adult")
+            .when(Expr::col("age").lte(18)
+                .and(Expr::col("age").gt(12)),"teenager")
             .else_result("child")
-        ).append(" FROM users", None)
-        .build_mut().0;
+        )
+        .from("users")
+        .build().0;
 
     let expected_sql = "SELECT id, name, CASE WHEN age > ? THEN adult WHEN age <= ? AND age > ? THEN teenager ELSE child END FROM users";
     assert_eq!(sql, expected_sql);
@@ -74,13 +144,39 @@ fn test_case_when_builder() {
 #[cfg(feature = "sqlite")]
 #[test]
 fn sql_sqlite_test() {
-    let query = QueryBuilder::select("users", &["id", "name"])
-        .filter(field("age").eq(23))
-        .filter(field("salary").gt(45))
-        .or(field("status").r#in(vec!["A", "B"]))
+    use kitx::sqlite::sql::{col, Select};
+
+    let query = Select::columns(&["id", "name "])
+        .from("users")        
+        .where_(col("age").eq(23))
+        .and(col("salary").gt(45))
+        .or(col("status").in_(vec!["A", "B"]))
         .order_by("name", true)
         .order_by("age", false)
-        .build_mut().0;
+        .build().0;
 
     assert_eq!(query, "SELECT id, name FROM users WHERE age = ? AND salary > ? OR status IN (?, ?) ORDER BY name ASC, age DESC");
+}
+
+#[cfg(feature = "sqlite")]
+#[test]
+fn upsert_test() {
+    use kitx::sqlite::{kind::DataKind, sql::Insert};
+
+    let query = Insert::into("users")
+        .columns(&["id", "name", "age"])
+        .values(vec![
+            vec![
+                DataKind::from(1),
+                DataKind::from("Alice"),
+                DataKind::from(25),
+            ],
+        ])
+        .on_conflict_do_update("id", &["name", "age",])
+        .build().0;
+
+    let expected_sql = "INSERT INTO users (id, name, age) VALUES (?, ?, ?) \
+                        ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, age = EXCLUDED.age";
+
+    assert_eq!(query, expected_sql);
 }

@@ -9,7 +9,7 @@ use sqlx::sqlite::SqliteArgumentValue;
 use crate::common::util::unwrap_option;
 
 /// Enum representing different types of database field values.
-#[derive(Debug, Clone)]
+#[derive(Default, Debug, Clone)]
 pub enum DataKind<'a> {
     /// Text type (string).
     Text(Cow<'a, str>),
@@ -22,6 +22,7 @@ pub enum DataKind<'a> {
     /// BLOB type (byte array).
     Blob(Cow<'a, [u8]>),
     /// Null type.
+    #[default]
     Null,
 }
 
@@ -110,6 +111,7 @@ impl_from!(Vec<u8>, |value: Vec<u8>| DataKind::Blob(Cow::Owned(value)));
 impl_from!(&'a [u8], |value: &'a [u8]| DataKind::Blob(Cow::Borrowed(value)));
 impl_from!(i32, |value: i32| DataKind::Integer(value as i64));
 impl_from!(i64, DataKind::Integer);
+impl_from!(u64, |value: u64| DataKind::Integer(value as i64));
 impl_from!(f32, |value: f32| DataKind::Real(value as f64));
 impl_from!(f64, DataKind::Real);
 impl_from!(bool, |value: bool| DataKind::Integer(value as i64));

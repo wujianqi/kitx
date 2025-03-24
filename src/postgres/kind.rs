@@ -13,9 +13,10 @@ use uuid::Uuid;
 use crate::common::util::unwrap_option;
 
 /// Enum representing PostgreSQL data types, supporting the main PostgreSQL type system
-#[derive(Debug, Clone)]
+#[derive(Default, Debug, Clone)]
 pub enum DataKind<'a> {
     // Basic types
+    #[default]
     Null,
     Bool(bool),
 
@@ -192,6 +193,7 @@ impl_from!(&'a [u8], |value: &'a [u8]| DataKind::Bytea(Cow::Borrowed(value)));
 impl_from!(i16, DataKind::Int2);
 impl_from!(i32, DataKind::Int4);
 impl_from!(i64, DataKind::Int8);
+impl_from!(u64, |value: u64| DataKind::Int8(value as i64));
 impl_from!(f32, DataKind::Float4);
 impl_from!(f64, DataKind::Float8);
 impl_from!(bool, DataKind::Bool);

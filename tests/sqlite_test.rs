@@ -30,11 +30,18 @@ where
 #[cfg(feature = "sqlite")]
 mod sqlite_tests {
     use super::*;
-    use kitx::common::builder::BuilderTrait;
-    use kitx::common::operations::OperationsTrait;
-    use kitx::sqlite::connection::init_db_pool;
-    use kitx::sqlite::operations::Operations;
-    use kitx::sqlite::sql::{field, QueryBuilder, QueryCondition};
+    use kitx::{
+        common::{
+            builder::{FilterTrait, QueryTrait}, 
+            operations::OperationsTrait, 
+            util::{dyn_query, empty_query}
+        }, 
+        sqlite::{
+            connection::init_db_pool, 
+            operations::Operations, 
+            sql::{col, Select}
+        }
+    };
 
     async fn setup_db_pool() {
         let database_url = get_database_url();
@@ -58,14 +65,14 @@ mod sqlite_tests {
         setup_db_pool().await;
         let article = Article::new("test","test3", Some(1));
         let operations = get_operations();
-        run_op(|| operations.update_one(article, false)).await;
+        run_op(|| operations.update_by_key(article, )).await;
     }
 
     #[tokio::test]
     async fn delete_one() {
         setup_db_pool().await;
         let operations = get_operations();
-        run_op(|| operations.delete_one(1)).await;
+        run_op(|| operations.delete_by_key(1)).await;
     }
 
     #[tokio::test]
@@ -76,46 +83,68 @@ mod sqlite_tests {
     }
 
     #[tokio::test]
-    async fn fetch_all() {
+    async fn get_list() {
         setup_db_pool().await;
         let operations = get_operations();
-        run_op(|| operations.fetch_all(QueryCondition::empty())).await;
+        //let qf: Option<Box<dyn Fn(&mut Select) + Send>> = None;
+
+        /* let dq = dyn_query(|builder: &mut Select| {
+            builder.where_mut(col("a_id").gt(1));
+        }); */
+
+        let dq = empty_query();
+
+        run_op(|| operations.get_list(dq)).await;
     }
 
     #[tokio::test]
-    async fn fetch_by_key() {
+    async fn get_by_key() {
         setup_db_pool().await;
         let operations = get_operations();
-        run_op(|| operations.fetch_by_key(1)).await;
+        run_op(|| operations.get_by_key(1)).await;
     }
 
     #[tokio::test]
-    async fn fetch_one() {
+    async fn get_one() {
         setup_db_pool().await;
         let operations = get_operations();
-        let qf = QueryCondition::from(|builder: &mut QueryBuilder| {
-            builder.filter(field("a_id").eq(2));
+        let qf = dyn_query(|builder: &mut Select| {
+            builder.where_mut(col("a_id").eq(2));
           });
-        run_op(|| operations.fetch_one(qf)).await;
+        run_op(|| operations.get_one(qf)).await;
     }
 
     #[tokio::test]
-    async fn fetch_by_cursor() {
+    async fn get_list_by_cursor() {
         setup_db_pool().await;
         let operations = get_operations();
-        let qf = QueryCondition::from(|builder: &mut QueryBuilder| {
-            builder.filter(field("a_id").gt(1)).order_by("a_id", false);
+        let qf = Some(|builder: &mut Select| {
+            builder.where_mut(col("a_id").gt(1)).order_by_mut("a_id", false);
           });
-        run_op(|| operations.fetch_by_cursor(5, qf)).await;
+        run_op(|| operations.get_list_by_cursor(5, qf)).await;
     }
 
     #[tokio::test]
-    async fn fetch_paginated() {
+    async fn get_list_paginated() {
         setup_db_pool().await;
         let operations = get_operations();
-        let qf = QueryCondition::from(|builder: &mut QueryBuilder| {
-            builder.filter(field("a_id").gt(1));
+        let qf = Some(|builder: &mut Select| {
+            builder.where_mut(col("a_id").gt(1));
           });
-        run_op(|| operations.fetch_paginated(1, 5, qf)).await;
+        run_op(|| operations.get_list_paginated(1, 5, qf)).await;
+    }
+
+    #[tokio::test]
+    async fn upsert_many() {
+        setup_db_pool().await;
+        let operations = get_operations();
+
+        let articles = vec![
+            Article::new("title1", "content1", Some(1)),
+            Article::new("title2", "content2", Some(2)),
+            Article::new("title3", "content21", Some(21)),
+        ];
+
+        run_op(|| operations.upsert_many(articles)).await;
     }
 }

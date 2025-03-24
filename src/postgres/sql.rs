@@ -1,11 +1,15 @@
-use crate::common::builder::{BuilderCondition, BuilderTrait};
-use crate::sql::{builder::Builder, filter::Field};
+use crate::sql::delete::DeleteBuilder;
+use crate::sql::filter::Expr;
+use crate::sql::filter::ColumnExpr;
+use crate::sql::insert::InsertBuilder;
+use crate::sql::select::SelectBuilder;
+use crate::sql::update::UpdateBuilder;
 use super::kind::DataKind;
 
-/// PostgreSQL-specific SQL builder.
-pub type QueryBuilder<'a> = Builder<DataKind<'a>>;
-/// PostgreSQL-specific SQL condition builder.
-pub type QueryCondition<'a> = BuilderCondition<'a, QueryBuilder<'a>>;
+pub type Select<'a> = SelectBuilder<DataKind<'a>>;
+pub type Insert<'a> = InsertBuilder<DataKind<'a>>;
+pub type Update<'a> = UpdateBuilder<DataKind<'a>>;
+pub type Delete<'a> = DeleteBuilder<DataKind<'a>>;
 
 /// Creates an object for retrieving field values.
 ///
@@ -14,59 +18,36 @@ pub type QueryCondition<'a> = BuilderCondition<'a, QueryBuilder<'a>>;
 ///
 /// # Returns
 /// - `Field`: Object for retrieving field values.
-pub fn field<'a>(name: &'a str) -> Field<'a, DataKind<'a>> {
-    Field::get(name)
+pub fn col<'a>(name: &'a str) -> ColumnExpr<DataKind<'a>> {
+    Expr::col(name)
 }
 
 // PostgreSQL-specific methods
-impl<'a> QueryBuilder<'a> {
-    /// Adds an ON CONFLICT clause.
-    pub fn on_conflict(
-        &mut self,
-        table: &str,
-        columns: &[&str],
-        values: Vec<Vec<DataKind<'a>>>,
-        update_columns: &[&str],
-    ) -> &mut Self {
-        // Reuse the logic from insert_into to generate the base SQL and parameters
-        let mut builder = Builder::insert_into(table, columns, values.clone());
+impl<'a> Insert<'a> {
+    /// Adds an ON CONFLICT DO UPDATE clause for PostgreSQL.
+    /// This is implemented using PostgreSQL's ON CONFLICT ... DO UPDATE SET syntax.
+    pub fn on_conflict_do_update(
+        self,
+        conflict_target: &'a str,
+        excluded_columns: &[&str],
+    ) -> Self {
+        let mut sql = String::with_capacity(64);
 
-        // Create the ON CONFLICT clause
-        let update_clause = update_columns
-            .iter()
-            .map(|col| format!("{} = ?", col))
-            .collect::<Vec<String>>()
-            .join(", ");
-        let sqlstr = format!(" ON CONFLICT ({}) DO UPDATE SET {}", columns.join(", "), update_clause);
+        // Append the ON CONFLICT clause
+        sql.push_str(" ON CONFLICT (");
+        sql.push_str(conflict_target);
+        sql.push_str(") DO UPDATE SET ");
 
-        // Add the values to be updated to cols_values
-        let mut vals = Vec::new();
-        for row in &values {
-            for col in update_columns {
-                if let Some(index) = columns.iter().position(|&c| c == *col) {
-                    vals.push(row[index].clone());
-                }
+        // Append the SET clause for excluded columns
+        for (i, column) in excluded_columns.iter().enumerate() {
+            if i > 0 {
+                sql.push_str(", ");
             }
+            sql.push_str(column);
+            sql.push_str(" = EXCLUDED.");
+            sql.push_str(column);
         }
 
-        // Add the SQL and parameters to the builder
-        builder.append(&sqlstr, Some(vals));
-
-        // Return a mutable reference to the current builder
-        self
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_insert() {
-        let values = vec![
-            vec!["John".into(), "30".into()]
-        ];
-        let builder = QueryBuilder::insert_into("users", &["name", "age"], values);
-        assert_eq!(builder.build().0, "INSERT INTO users ( name, age ) VALUES (?, ?)");
+        self.append(sql, None)
     }
 }

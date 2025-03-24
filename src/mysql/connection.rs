@@ -1,3 +1,5 @@
+use crate::common::error::OperationError;
+
 use sqlx::{Pool, MySql};
 use sqlx::{pool::PoolOptions, Error, MySqlPool};
 use sqlx::mysql::{MySqlConnectOptions, MySqlSslMode};
@@ -24,25 +26,23 @@ pub async fn init_db_pool_custom(pool: Pool<MySql>) -> Result<&'static MySqlPool
 pub async fn init_db_pool(database_url: &str) -> Result<&'static MySqlPool, Error> {
     let (maxc, minc, warmupc) = util::db_connect_limits(Some(20));
 
-    // Configure MySQL connection options
-    let connect_options = MySqlConnectOptions::from_str(database_url)? // Parse the database URL
-        .ssl_mode(MySqlSslMode::Disabled); // Configure SSL mode as needed
+    let connect_options = MySqlConnectOptions::from_str(database_url)
+        .map_err(|e| OperationError::new(format!("Failed to parse MySQL connection URL: {}", e)))?
+        .ssl_mode(MySqlSslMode::Disabled);
 
-    // Create the connection pool with specified options
     let pool = PoolOptions::new()
-        .max_connections(maxc) // Adjust the maximum number of connections based on load
-        .min_connections(minc) // Pre-establish minimum connections to reduce initial request latency
-        .acquire_timeout(Duration::from_secs(3)) // Set the timeout for acquiring a connection
-        .idle_timeout(Duration::from_secs(60)) // Set the timeout for idle connections
-        .max_lifetime(Duration::from_secs(600)) // Set the maximum lifetime of a connection
-        .test_before_acquire(true) // Test the connection before acquiring it
+        .max_connections(maxc)
+        .min_connections(minc)
+        .acquire_timeout(Duration::from_secs(3))
+        .idle_timeout(Duration::from_secs(60))
+        .max_lifetime(Duration::from_secs(600))
+        .test_before_acquire(true)
         .connect_with(connect_options)
-        .await?;
+        .await
+        .map_err(|e| OperationError::new(format!("Failed to initialize MySQL connection pool: {}", e)))?;
 
-    // Warm up the connection pool by pre-establishing the minimum number of connections
     let _ = warmup_connect(&pool, warmupc).await;
 
-    // Initialize the connection pool with the created pool
     init_db_pool_custom(pool).await
 }
 

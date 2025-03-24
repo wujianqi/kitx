@@ -1,3 +1,5 @@
+use crate::common::error::OperationError;
+
 use sqlx::{Pool, Sqlite};
 use sqlx::{pool::PoolOptions, Error, SqlitePool};
 use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode};
@@ -25,18 +27,19 @@ pub async fn init_db_pool_custom<'a>(pool: Pool<Sqlite>) -> Result<&'a SqlitePoo
 pub async fn init_db_pool(database_url: &str) -> Result<&SqlitePool, Error> {
     let (maxc, minc, _) = util::db_connect_limits(None);
 
-    let connect_options = SqliteConnectOptions::from_str(database_url)?
-        .create_if_missing(true) // Create the database if it does not exist
-        .journal_mode(SqliteJournalMode::Wal); // Enable WAL mode
+    let connect_options = SqliteConnectOptions::from_str(database_url)
+        .map_err(|e| OperationError::new(format!("Failed to parse SQLite connection URL: {}", e)))?
+        .create_if_missing(true)
+        .journal_mode(SqliteJournalMode::Wal);
 
-    // Create the connection pool
     let pool = PoolOptions::new()
         .max_connections(maxc)
         .min_connections(minc)
         .acquire_timeout(Duration::from_secs(8))
         .idle_timeout(Duration::from_secs(30))
         .connect_with(connect_options)
-        .await?;
+        .await
+        .map_err(|e| OperationError::new(format!("Failed to initialize SQLite connection pool: {}", e)))?;
 
     init_db_pool_custom(pool).await
 }

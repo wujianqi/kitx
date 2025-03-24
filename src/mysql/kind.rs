@@ -155,6 +155,7 @@ impl_from!(i8, DataKind::TinyInt);
 impl_from!(i16, DataKind::SmallInt);
 impl_from!(i32, DataKind::Int);
 impl_from!(i64, DataKind::BigInt);
+impl_from!(u64, |value: u64| DataKind::BigInt(value as i64));
 impl_from!(f32, DataKind::Float);
 impl_from!(f64, DataKind::Double);
 impl_from!(bool, DataKind::Bool);

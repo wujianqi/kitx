@@ -1,4 +1,7 @@
-use std::{any::Any, cmp::max, fmt::Write};
+use std::{any::Any, fmt::Write};
+
+#[cfg(any(feature = "mysql", feature = "sqlite", feature = "postgres"))]
+use std::cmp::max;
 
 /// Helper function to recursively unwrap any number of Option layers
 /// and return the inner value if it exists.
@@ -66,16 +69,33 @@ pub fn replace_placeholders(sql: &str) -> String {
     result
 }
 
+#[cfg(any(feature = "mysql", feature = "sqlite", feature = "postgres"))]
 /// Calculates the maximum, minimum, and warmup connection limits based on the provided percentage.
 pub fn db_connect_limits(percentage: Option<u32>) -> (u32, u32, u32) {
     let num_cpus = num_cpus::get() as u32;
     let max_connections = max(10, num_cpus * 2);
     let min_connections = num_cpus / 2;
-    let mut warmup_connections = 0;
-    if let Some(perc) = percentage {
-        warmup_connections = (max_connections as f32 * (perc as f32 / 100.0)).ceil() as u32;
-    }    
+    let warmup_connections = percentage.map_or(0, |perc| {
+        (max_connections as f32 * (perc as f32 / 100.0)).ceil() as u32
+    });
+    
     (max_connections, min_connections, warmup_connections)
+}
+
+#[cfg(any(feature = "mysql", feature = "sqlite", feature = "postgres"))]
+/// Creates a dynamic query function.
+pub fn dyn_query<'a, 'b, F, Q>(query_fn: F) -> Option<Box<dyn Fn(&mut Q) + Send + 'b>>
+where
+    F: Fn(&mut Q) + Send + 'a,
+    'a: 'b,
+{
+    Some(Box::new(query_fn))
+}
+
+#[cfg(any(feature = "mysql", feature = "sqlite", feature = "postgres"))]
+/// Creates an empty query function.
+pub fn empty_query<'a, 'b, Q>() -> Option<Box<dyn Fn(&mut Q) + Send + 'b>> {
+    None
 }
 
 

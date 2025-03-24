@@ -1,6 +1,6 @@
 use std::{cell::Cell, sync::OnceLock};
 
-use crate::sql::filter::FilterClause;
+use crate::sql::filter::Expr;
 use super::kind::DataKind;
 
 static SQLITE_G_S_D_F: OnceLock<(&'static str, Vec<&'static str>)> = OnceLock::new();
@@ -24,14 +24,14 @@ pub fn get_global_soft_delete_field() -> Option<&'static (&'static str, Vec<&'st
 }
 
 thread_local! {
-    static SQLITE_G_F_S: Cell<Option<(FilterClause<DataKind<'static>>, Vec<&'static str>)>> = Cell::new(None);
+    static SQLITE_G_F_S: Cell<Option<(Expr<DataKind<'static>>, Vec<&'static str>)>> = Cell::new(None);
 }
 
 /// Sets the global filter clause configuration.
 ///
 /// # Parameters
 /// - `filter`: A tuple containing the filter clause (`FilterClause<DataKind<'static>>`) and a list of tables to exclude from this filter.
-pub fn set_global_filter(filter: FilterClause<DataKind<'static>>, exclude_tables: Vec<&'static str>) {
+pub fn set_global_filter(filter: Expr<DataKind<'static>>, exclude_tables: Vec<&'static str>) {
     SQLITE_G_F_S.with(|cell| {
         cell.replace(Some((filter, exclude_tables)));
     });
@@ -42,6 +42,6 @@ pub fn set_global_filter(filter: FilterClause<DataKind<'static>>, exclude_tables
 /// # Returns
 /// - `Option<(FilterClause<DataKind<'static>>, Vec<String>)>`: If the global filter clause is set, returns a tuple containing the filter clause and excluded tables.
 /// - `None`: If the global filter clause has not been configured yet.
-pub fn get_global_filter() -> Option<(FilterClause<DataKind<'static>>, Vec<&'static str>)> {
+pub fn get_global_filter() -> Option<(Expr<DataKind<'static>>, Vec<&'static str>)> {
     SQLITE_G_F_S.with(|cell| cell.take())
 }
