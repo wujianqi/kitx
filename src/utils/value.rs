@@ -1,7 +1,9 @@
-use std::{any::Any, fmt::Write};
+use std::any::Any;
 
-#[cfg(any(feature = "mysql", feature = "sqlite", feature = "postgres"))]
-use std::cmp::max;
+/// Trait for converting values to a specific type.
+pub trait ValueConvert<T> {
+    fn convert(value: &dyn Any) -> T;
+}
 
 /// Helper function to recursively unwrap any number of Option layers
 /// and return the inner value if it exists.
@@ -50,55 +52,6 @@ pub fn is_empty_or_none(value: &dyn Any) -> bool {
     false
 }
 
-/// Replaces `?` placeholders in an SQL query with `$1`, `$2`, etc.
-pub fn replace_placeholders(sql: &str) -> String {
-    let mut result = String::with_capacity(sql.len());
-    let mut count = 1;
-    let mut chars = sql.chars().peekable();
-
-    while let Some(c) = chars.next() {
-        if c == '?' {
-            let _ = result.write_str("$");
-            let _ = result.write_str(&count.to_string());
-            count += 1;
-        } else {
-            result.push(c);
-        }
-    }
-
-    result
-}
-
-#[cfg(any(feature = "mysql", feature = "sqlite", feature = "postgres"))]
-/// Calculates the maximum, minimum, and warmup connection limits based on the provided percentage.
-pub fn db_connect_limits(percentage: Option<u32>) -> (u32, u32, u32) {
-    let num_cpus = num_cpus::get() as u32;
-    let max_connections = max(10, num_cpus * 2);
-    let min_connections = num_cpus / 2;
-    let warmup_connections = percentage.map_or(0, |perc| {
-        (max_connections as f32 * (perc as f32 / 100.0)).ceil() as u32
-    });
-    
-    (max_connections, min_connections, warmup_connections)
-}
-
-#[cfg(any(feature = "mysql", feature = "sqlite", feature = "postgres"))]
-/// Creates a dynamic query function.
-pub fn dyn_query<'a, 'b, F, Q>(query_fn: F) -> Option<Box<dyn Fn(&mut Q) + Send + 'b>>
-where
-    F: Fn(&mut Q) + Send + 'a,
-    'a: 'b,
-{
-    Some(Box::new(query_fn))
-}
-
-#[cfg(any(feature = "mysql", feature = "sqlite", feature = "postgres"))]
-/// Creates an empty query function.
-pub fn empty_query<'a, 'b, Q>() -> Option<Box<dyn Fn(&mut Q) + Send + 'b>> {
-    None
-}
-
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -130,12 +83,6 @@ mod tests {
         assert!(is_empty_or_none(&empty_opt_none)); 
         assert!(is_empty_or_none(&empty_vec));       
     }
-
-    #[test]
-    fn test_replace_placeholders() {
-        let sql = "SELECT * FROM users WHERE id = ? AND name = ?";
-        let new_sql = replace_placeholders(sql);
-        assert_eq!(new_sql, "SELECT * FROM users WHERE id = $1 AND name = $2");
-    }
     
 }
+

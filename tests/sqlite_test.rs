@@ -33,14 +33,13 @@ mod sqlite_tests {
     use kitx::{
         common::{
             builder::{FilterTrait, QueryTrait}, 
-            operations::OperationsTrait, 
-            util::{dyn_query, empty_query}
+            operations::OperationsTrait
         }, 
         sqlite::{
             connection::init_db_pool, 
             operations::Operations, 
             sql::{col, Select}
-        }
+        }, utils::query::{dyn_query, empty_query}
     };
 
     async fn setup_db_pool() {

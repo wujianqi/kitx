@@ -35,7 +35,8 @@ mod mysql_tests {
     use kitx::mysql::connection::init_db_pool;
     use kitx::mysql::operations::Operations;
     use kitx::mysql::sql::{col, Select};
-    use kitx::common::util::{dyn_query, empty_query};
+    use kitx::utils::query::{dyn_query, empty_query};
+
 
     async fn setup_db_pool() {
         let database_url = get_database_url();

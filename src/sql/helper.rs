@@ -2,7 +2,7 @@ use std::fmt::Debug;
 use super::filter::Expr;
 
 // Helper method to build WHERE clause
-pub(crate) fn build_where_clause<T: Debug + Clone>(where_clauses: Vec<Expr<T>>) -> (String, Vec<T>) {
+pub fn build_where_clause<T: Debug + Clone>(where_clauses: Vec<Expr<T>>) -> (String, Vec<T>) {
     if where_clauses.is_empty() {
         return (String::new(), Vec::new());
     }
@@ -24,7 +24,7 @@ pub(crate) fn build_where_clause<T: Debug + Clone>(where_clauses: Vec<Expr<T>>) 
 }
 
 /// Combines multiple WHERE clauses into a single WHERE clause.
-pub(crate) fn combine_where_clause<T: Debug + Clone>(clauses: &mut Vec<Expr<T>>, filter: Expr<T>, is_or: bool) {
+pub fn combine_where_clause<T: Debug + Clone>(clauses: &mut Vec<Expr<T>>, filter: Expr<T>, is_or: bool) {
     if let Some(last_clause) = clauses.pop() {
         let combined_clause = if is_or {
             last_clause.or(filter)
@@ -38,7 +38,7 @@ pub(crate) fn combine_where_clause<T: Debug + Clone>(clauses: &mut Vec<Expr<T>>,
 }
 
 // Helper method to build ORDER BY clause
-pub(crate) fn build_order_by_clause(order_by: Vec<(String, bool)>) -> String {
+pub fn build_order_by_clause(order_by: Vec<(String, bool)>) -> String {
     if order_by.is_empty() {
         return String::new();
     }
@@ -56,7 +56,7 @@ pub(crate) fn build_order_by_clause(order_by: Vec<(String, bool)>) -> String {
 }
 
 // Helper method to build LIMIT/OFFSET clause
-pub(crate) fn build_limit_offset_clause<T: Debug + Clone>(
+pub fn build_limit_offset_clause<T: Debug + Clone>(
     limit: T,
     offset: Option<T>,
 ) -> (String, Vec<T>) {
@@ -75,7 +75,7 @@ pub(crate) fn build_limit_offset_clause<T: Debug + Clone>(
 }
 
 /// Builds a RETURNING clause for a SQL query.
-pub(crate) fn build_returning_clause(columns: &[&str]) -> String {
+pub fn build_returning_clause(columns: &[&str]) -> String {
     let mut returning_sql = String::with_capacity(80);
         returning_sql.push_str(" RETURNING ");
         for (i, col) in columns.iter().enumerate() {

@@ -1,14 +1,15 @@
+use std::fmt::Debug;
 use std::future::Future;
+
 use serde::{Deserialize, Serialize};
 use sqlx::{Database, Error, FromRow};
 
-pub trait OperationsTrait<'a, T, DB>: Send + Sync 
+pub trait OperationsTrait<'a, T, DB, D>: Send + Sync 
 where
     DB: Database,
     T: for<'r> FromRow<'r, DB::Row> + Send + Sync + Default,
+    D: Clone + Debug + Send + Sync,
 {
-    type DataType;
-    type QueryResult;
     type QueryFilter<'b>;
     type UpdateFilter<'b>;
     type DeleteFilter<'b>;
@@ -23,7 +24,7 @@ where
     /// 
     /// # Returns
     /// Returns the primary key value of the inserted record.
-    fn insert_one(&self, entity: T) -> impl Future<Output = Result<Self::QueryResult, Error>> + Send;
+    fn insert_one(&self, entity: T) -> impl Future<Output = Result<DB::QueryResult, Error>> + Send;
 
     /// Inserts multiple records into the database and returns a list of primary key values of the inserted records.
     /// 
@@ -32,7 +33,7 @@ where
     /// 
     /// # Returns
     /// Returns a list of primary key values of the inserted records.
-    fn insert_many(&self, entities: Vec<T>) -> impl Future<Output = Result<Self::QueryResult, Error>> + Send;
+    fn insert_many(&self, entities: Vec<T>) -> impl Future<Output = Result<DB::QueryResult, Error>> + Send;
 
     /// Updates a single record and returns the number of affected rows.
     /// 
@@ -41,7 +42,7 @@ where
     /// 
     /// # Returns
     /// Returns the number of affected rows.
-    fn update_by_key(&self, entity: T) -> impl Future<Output = Result<Self::QueryResult, Error>> + Send;
+    fn update_by_key(&self, entity: T) -> impl Future<Output = Result<DB::QueryResult, Error>> + Send;
 
     /// Updates a single record and returns the number of affected rows.
     /// 
@@ -51,23 +52,23 @@ where
     /// 
     /// # Returns
     /// Returns the number of affected rows.
-    fn update_one<F>(&self, entity: T, query_condition: Option<F>) -> impl Future<Output = Result<Self::QueryResult, Error>> + Send
+    fn update_one<F>(&self, entity: T, query_condition: Option<F>) -> impl Future<Output = Result<DB::QueryResult, Error>> + Send
     where
-        F: FnOnce(&mut Self::UpdateFilter<'a>) + Send + 'a;
+        F: Fn(&mut Self::UpdateFilter<'a>) + Send + 'a;
 
     /// Upserts a record into the database.
     /// If the record already exists, it updates the record.
     /// If the record does not exist, it inserts the record.
     /// # Parameters
     /// - `entity`: The record to be upserted.
-    fn upsert_one(&self, entity: T) -> impl Future<Output = Result<Self::QueryResult, Error>> + Send;
+    fn upsert_one(&self, entity: T) -> impl Future<Output = Result<DB::QueryResult, Error>> + Send;
 
     /// Upserts multiple records into the database.
     /// If the records already exist, it updates the records.
     /// If the records do not exist, it inserts the records.
     /// # Parameters
     /// - `entities`: The records to be upserted.
-    fn upsert_many(&self, entities: Vec<T>) -> impl Future<Output = Result<Self::QueryResult, Error>> + Send;
+    fn upsert_many(&self, entities: Vec<T>) -> impl Future<Output = Result<DB::QueryResult, Error>> + Send;
 
     /// Deletes a single record and returns the number of affected rows.
     /// 
@@ -76,7 +77,7 @@ where
     /// 
     /// # Returns
     /// Returns the number of affected rows.
-    fn delete_by_key(&self, key: impl Into<Self::DataType> + Send) -> impl Future<Output = Result<Self::QueryResult, Error>> + Send;
+    fn delete_by_key(&self, key: impl Into<D> + Send) -> impl Future<Output = Result<DB::QueryResult, Error>> + Send;
 
     /// Deletes multiple records and returns the number of affected rows.
     /// 
@@ -85,7 +86,7 @@ where
     /// 
     /// # Returns
     /// Returns the number of affected rows.
-    fn delete_many(&self, keys: Vec<impl Into<Self::DataType> + Send>) -> impl Future<Output = Result<Self::QueryResult, Error>> + Send;
+    fn delete_many(&self, keys: Vec<impl Into<D> + Send>) -> impl Future<Output = Result<DB::QueryResult, Error>> + Send;
 
     /// Deletes a single or multiple records and returns the number of affected rows.
     /// 
@@ -95,9 +96,9 @@ where
     /// # Returns
     /// Returns the number of affected rows.
     ///
-    fn delete_by_cond<F>(&self, query_condition: Option<F>) -> impl Future<Output = Result<Self::QueryResult, Error>> + Send
+    fn delete_by_cond<F>(&self, query_condition: Option<F>) -> impl Future<Output = Result<DB::QueryResult, Error>> + Send
     where
-        F: FnOnce(&mut Self::DeleteFilter<'a>) + Send + 'a;
+        F: Fn(&mut Self::DeleteFilter<'a>) + Send + 'a;
 
 
     /// Queries and returns all records in the table, supporting conditional queries.
@@ -109,7 +110,7 @@ where
     /// Returns a list of records.
     fn get_list<F>(&self, query_condition: Option<F>) -> impl Future<Output = Result<Vec<T>, Error>> + Send
     where
-        F: FnOnce(&mut Self::QueryFilter<'a>) + Send + 'a;
+        F: Fn(&mut Self::QueryFilter<'a>) + Send + 'a;
 
     /// Queries and returns a single record based on the primary key.
     /// 
@@ -118,7 +119,7 @@ where
     /// 
     /// # Returns
     /// Returns a single record.
-    fn get_by_key(&self, id: impl Into<Self::DataType> + Send) -> impl Future<Output = Result<Option<T>, Error>> + Send;
+    fn get_by_key(&self, id: impl Into<D> + Send) -> impl Future<Output = Result<Option<T>, Error>> + Send;
 
     /// Queries and returns a single record based on field conditions.
     /// 
@@ -129,7 +130,7 @@ where
     /// Returns a single record.
     fn get_one<F>(&self, query_condition: Option<F>) -> impl Future<Output = Result<Option<T>, Error>> + Send
     where
-        F: FnOnce(&mut Self::QueryFilter<'a>) + Send + 'a;
+        F: Fn(&mut Self::QueryFilter<'a>) + Send + 'a;
     /// Paginates and returns records in the table, supporting conditional queries.
     /// 
     /// # Parameters
@@ -146,7 +147,7 @@ where
         query_condition: Option<F>,
     ) -> impl Future<Output = Result<PaginatedResult<T>, Error>> + Send
     where
-        F: FnOnce(&mut Self::QueryFilter<'a>) + Send + 'a;
+        F: Fn(&mut Self::QueryFilter<'a>) + Send + 'a;
 
     /// Cursor paginates and returns records in the table, supporting conditional queries.
     /// 
@@ -163,7 +164,7 @@ where
     ) -> impl Future<Output = Result<CursorPaginatedResult<T>, Error>> + Send
     where
         T: Clone,
-        F: FnOnce(&mut Self::QueryFilter<'a>) + Send + 'a;
+        F: Fn(&mut Self::QueryFilter<'a>) + Send + 'a;
 
     /// Checks if the value of a field is unique.
     /// 
@@ -171,7 +172,7 @@ where
     /// * `query_condition`: A query condition structure.
     fn exist<F>(&self, query_condition: Option<F>) -> impl Future<Output = Result<bool, Error>> + Send
     where
-        F: FnOnce(&mut Self::QueryFilter<'a>) + Send + 'a;
+        F: Fn(&mut Self::QueryFilter<'a>) + Send + 'a;
 
     /// Gets the total number of records, supporting conditional queries.
     /// 
@@ -182,19 +183,19 @@ where
     /// Returns the total number of records.
     fn count<F>(&self, query_condition: Option<F>) -> impl Future<Output = Result<i64, Error>> + Send
     where
-        F: FnOnce(&mut Self::QueryFilter<'a>) + Send + 'a;
+        F: Fn(&mut Self::QueryFilter<'a>) + Send + 'a;
 
     /// Restores a single soft-deleted record.
     /// 
     /// # Parameters
     /// * `key`: The primary key value of the record to be restored.
-    fn restore_one(&self, key: impl Into<Self::DataType> + Send) -> impl Future<Output = Result<Self::QueryResult, Error>> + Send;
+    fn restore_one(&self, key: impl Into<D> + Send) -> impl Future<Output = Result<DB::QueryResult, Error>> + Send;
 
     /// Restores multiple soft-deleted records.
     /// 
     /// # Parameters
     /// * `keys`: A list of primary key values of the records to be restored.
-    fn restore_many(&self, keys: Vec<impl Into<Self::DataType> + Send>) -> impl Future<Output = Result<Self::QueryResult, Error>> + Send;
+    fn restore_many(&self, keys: Vec<impl Into<D> + Send>) -> impl Future<Output = Result<DB::QueryResult, Error>> + Send;
 
 }
 

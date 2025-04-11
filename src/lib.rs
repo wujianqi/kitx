@@ -1,5 +1,9 @@
-pub mod sql;
 pub mod common;
+pub mod utils;
+pub mod sql;
+
+#[cfg(any(feature = "mysql", feature = "sqlite", feature = "postgres"))]
+pub mod builders;
 
 #[cfg(feature = "sqlite")]
 pub mod sqlite;

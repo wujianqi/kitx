@@ -5,7 +5,7 @@ use sqlx::mysql::{MySql, MySqlTypeInfo};
 use sqlx::{Encode, Type, TypeInfo};
 use serde_json::Value;
 
-use crate::common::util::unwrap_option;
+use crate::utils::value::{unwrap_option, ValueConvert};
 
 /// Data type enumeration, supporting the main type system of MySQL
 #[derive(Debug, Clone)]
@@ -105,35 +105,37 @@ impl<'a> DataKind<'a> {
     }
 }
 
-/// Converts a value of any type to the `DataKind` enumeration type.
-pub fn value_convert<'a>(value: &dyn Any) -> DataKind<'a> {
-    macro_rules! try_convert {
-        ($($type:ty => $variant:expr),*) => {
-            $(if let Some(v) = unwrap_option::<$type>(value) {
-                return $variant(v);
-            })*
-            return DataKind::Null;
-        };
-    }
+impl<'a> ValueConvert<DataKind<'a>> for DataKind<'a> {    
+    /// Convert any type of value to the `DataKind` enum type.
+    fn convert(value: &dyn Any) -> DataKind<'a> {
+        macro_rules! try_convert {
+            ($($type:ty => $variant:expr),*) => {
+                $(if let Some(v) = unwrap_option::<$type>(value) {
+                    return $variant(v);
+                })*
+                return DataKind::Null;
+            };
+        }
 
-    try_convert!(
-        String => |v: &String| DataKind::Text(Cow::Owned(v.into())),
-        &str => |v: &'a str| DataKind::Text(Cow::Borrowed(v)),
-        i8 => |v: &i8| DataKind::TinyInt(*v),
-        i16 => |v: &i16| DataKind::SmallInt(*v),
-        i32 => |v: &i32| DataKind::Int(*v),
-        i64 => |v: &i64| DataKind::BigInt(*v),
-        f32 => |v: &f32| DataKind::Float(*v),
-        f64 => |v: &f64| DataKind::Double(*v),
-        NaiveDate => |v: &NaiveDate| DataKind::Date(*v),
-        NaiveTime => |v: &NaiveTime| DataKind::Time(*v),
-        NaiveDateTime => |v: &NaiveDateTime| DataKind::DateTime(*v),
-        DateTime<Utc> => |v: &DateTime<Utc>| DataKind::Timestamp(*v),
-        Vec<u8> => |v: &Vec<u8>| DataKind::Blob(Cow::Owned(v.clone())),
-        &[u8] => |v: &&'a [u8]| DataKind::Blob(Cow::Borrowed(*v)),
-        bool => |v: &bool| DataKind::Bool(*v),
-        Value => |v: &Value| DataKind::Json(v.clone())
-    );
+        try_convert!(
+            String => |v: &String| DataKind::Text(Cow::Owned(v.into())),
+            &str => |v: &'a str| DataKind::Text(Cow::Borrowed(v)),
+            i8 => |v: &i8| DataKind::TinyInt(*v),
+            i16 => |v: &i16| DataKind::SmallInt(*v),
+            i32 => |v: &i32| DataKind::Int(*v),
+            i64 => |v: &i64| DataKind::BigInt(*v),
+            f32 => |v: &f32| DataKind::Float(*v),
+            f64 => |v: &f64| DataKind::Double(*v),
+            NaiveDate => |v: &NaiveDate| DataKind::Date(*v),
+            NaiveTime => |v: &NaiveTime| DataKind::Time(*v),
+            NaiveDateTime => |v: &NaiveDateTime| DataKind::DateTime(*v),
+            DateTime<Utc> => |v: &DateTime<Utc>| DataKind::Timestamp(*v),
+            Vec<u8> => |v: &Vec<u8>| DataKind::Blob(Cow::Owned(v.clone())),
+            &[u8] => |v: &&'a [u8]| DataKind::Blob(Cow::Borrowed(*v)),
+            bool => |v: &bool| DataKind::Bool(*v),
+            Value => |v: &Value| DataKind::Json(v.clone())
+        );
+    }
 }
 
 // Implement From trait for common types

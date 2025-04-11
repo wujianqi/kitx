@@ -6,7 +6,7 @@ use sqlx::encode::IsNull;
 use sqlx::{Database, Encode, Sqlite, Type};
 use sqlx::sqlite::SqliteArgumentValue;
 
-use crate::common::util::unwrap_option;
+use crate::utils::value::{unwrap_option, ValueConvert};
 
 /// Enum representing different types of database field values.
 #[derive(Default, Debug, Clone)]
@@ -68,30 +68,32 @@ impl<'a> Type<Sqlite> for DataKind<'a> {
     }
 }
 
-/// Convert any type of value to the `DataKind` enum type.
-pub fn value_convert<'a>(value: &dyn Any) -> DataKind<'a> {
-    macro_rules! try_convert {
-        ($($type:ty => $variant:expr),*) => {
-            $(if let Some(v) = unwrap_option::<$type>(value) {
-                return $variant(v);
-            })*
-            return DataKind::Null;
-        };
+impl<'a> ValueConvert<DataKind<'a>> for DataKind<'a> {    
+    /// Convert any type of value to the `DataKind` enum type.
+    fn convert(value: &dyn Any) -> DataKind<'a> {
+        macro_rules! try_convert {
+            ($($type:ty => $variant:expr),*) => {
+                $(if let Some(v) = unwrap_option::<$type>(value) {
+                    return $variant(v);
+                })*
+                return DataKind::Null;
+            };
+        }
+    
+        try_convert!(
+            String => |v: &String| DataKind::Text(Cow::Owned(v.into())),
+            &str => |v: &'a str| DataKind::Text(Cow::Borrowed(v)),
+            i32 => |v: &i32| DataKind::Integer(*v as i64),
+            i64 => |v: &i64| DataKind::Integer(*v),
+            f32 => |v: &f32| DataKind::Real(*v as f64),
+            f64 => |v: &f64| DataKind::Real(*v),
+            bool => |v: &bool| DataKind::Integer(*v as i64),
+            NaiveDateTime => |v: &NaiveDateTime| DataKind::DateTime(DateTime::from_naive_utc_and_offset(*v, Utc)),
+            DateTime<Utc> => |v: &DateTime<Utc>| DataKind::DateTime(*v),
+            Vec<u8> => |v: &Vec<u8>| DataKind::Blob(Cow::Owned(v.clone())),
+            &[u8] => |v: &'a [u8]| DataKind::Blob(Cow::Borrowed(v))       
+        );
     }
-
-    try_convert!(
-        String => |v: &String| DataKind::Text(Cow::Owned(v.into())),
-        &str => |v: &'a str| DataKind::Text(Cow::Borrowed(v)),
-        i32 => |v: &i32| DataKind::Integer(*v as i64),
-        i64 => |v: &i64| DataKind::Integer(*v),
-        f32 => |v: &f32| DataKind::Real(*v as f64),
-        f64 => |v: &f64| DataKind::Real(*v),
-        bool => |v: &bool| DataKind::Integer(*v as i64),
-        NaiveDateTime => |v: &NaiveDateTime| DataKind::DateTime(DateTime::from_naive_utc_and_offset(*v, Utc)),
-        DateTime<Utc> => |v: &DateTime<Utc>| DataKind::DateTime(*v),
-        Vec<u8> => |v: &Vec<u8>| DataKind::Blob(Cow::Owned(v.clone())),
-        &[u8] => |v: &'a [u8]| DataKind::Blob(Cow::Borrowed(v))       
-    );
 }
 
 // Implement automatic conversion from common types to DataKind

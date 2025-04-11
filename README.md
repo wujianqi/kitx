@@ -32,16 +32,16 @@ A minimalistic SQL builder library based on [sqlx](https://crates.io/crates/sqlx
 ### 1. Add Dependency
 ```toml
 # Default SQL Builder, completely decoupled from any external libraries.
-kitx = "0.0.9"
+kitx = "0.0.10"
 
 # For SQLite only
-kitx = { version = "0.0.9", features = ["sqlite"] }
+kitx = { version = "0.0.10", features = ["sqlite"] }
 
 # For MySQL/MariaDB only
-kitx = { version = "0.0.9", features = ["mysql"] }
+kitx = { version = "0.0.10", features = ["mysql"] }
 
 # For PostgreSQL only
-kitx = { version = "0.0.9", features = ["postgres"] }
+kitx = { version = "0.0.10", features = ["postgres"] }
 ```
 
 ### 2. Basic Usage
@@ -93,7 +93,7 @@ set_global_soft_delete_field("deleted_at", vec!["audit_logs"]);
 
 // Global_filter is applied on a per-thread basis.
 // Multi-tenant filtering
-set_global_filter(field("tenant_id").eq(123)), vec!["system_metrics"]);
+set_global_filter(col("tenant_id").eq(123)), vec!["system_metrics"]);
 ```
 
 ## License

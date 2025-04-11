@@ -1,34 +1,27 @@
+use std::sync::Arc;
+
 use sqlx::postgres::{PgRow, PgQueryResult};
-use sqlx::{Acquire, Encode, Error, FromRow, Pool, Postgres, Type};
+use sqlx::{Acquire, Error, FromRow, Pool, Postgres};
 
 use crate::common::builder::BuilderTrait;
-use crate::common::database::DatabaseTrait;
+use crate::common::query::QueryExecutor;
 use crate::common::error::OperationError;
-use crate::common::util::replace_placeholders;
-use crate::sql::select::SelectBuilder;
+use crate::utils::text::replace_placeholders;
 use super::connection;
 use super::kind::DataKind;
 
-/// PostgreSQL query struct
 pub struct PostgresQuery;
 
-impl DatabaseTrait for PostgresQuery {
-    type Database = Postgres;
-    type Row = PgRow;
-    type QueryResult = PgQueryResult;
-    type SelectQuery<'a> = SelectBuilder<DataKind<'a>>;
-
-    async fn fetch_one<'a, T>(&self, qb: Self::SelectQuery<'a>) -> Result<T, Error>
+impl<'a> QueryExecutor<DataKind<'a>, Postgres> for PostgresQuery {
+    async fn fetch_one<T, B>(&self, qb: B) -> Result<T, Error>
     where
         T: for<'r> FromRow<'r, PgRow> + Unpin + Send,
+        B: BuilderTrait<DataKind<'a>> + Send + Sync,
     {
         let (sql, values) = qb.build();
-        if values.is_empty() {
-            return Err(OperationError::new("No parameters provided".to_string()));
-        }
-        let pool = self.get_db_pool();
-        let newsql = replace_placeholders(&sql);
-        let mut query = sqlx::query_as::<_, T>(&newsql);
+        let replaced_sql = replace_placeholders(&sql);
+        let pool = self.get_db_pool()?;
+        let mut query = sqlx::query_as::<_, T>(&replaced_sql);
 
         // Bind parameter values to the query
         for value in values {
@@ -39,14 +32,15 @@ impl DatabaseTrait for PostgresQuery {
         query.fetch_one(&*pool).await
     }
 
-    async fn fetch_all<'a, T>(&self, qb: Self::SelectQuery<'a>) -> Result<Vec<T>, Error>
+    async fn fetch_all<T, B>(&self, qb: B) -> Result<Vec<T>, Error>
     where
         T: for<'r> FromRow<'r, PgRow> + Unpin + Send,
+        B: BuilderTrait<DataKind<'a>> + Send + Sync,
     {
-        let pool = self.get_db_pool();
+        let pool = self.get_db_pool()?;
         let (sql, values) = qb.build();
-        let newsql = replace_placeholders(&sql);
-        let mut query = sqlx::query_as::<_, T>(&newsql);
+        let replaced_sql = replace_placeholders(&sql);
+        let mut query = sqlx::query_as::<_, T>(&replaced_sql);
 
         // Bind parameter values to the query
         for value in values {
@@ -57,63 +51,58 @@ impl DatabaseTrait for PostgresQuery {
         query.fetch_all(&*pool).await
     }
 
-    async fn fetch_optional<'a, T>(&self, qb: Self::SelectQuery<'a>) -> Result<Option<T>, Error>
+    async fn fetch_optional<T, B>(&self, qb: B) -> Result<Option<T>, Error>
     where
         T: for<'r> FromRow<'r, PgRow> + Unpin + Send,
+        B: BuilderTrait<DataKind<'a>> + Send + Sync,
     {
-        let pool = self.get_db_pool();
+        let pool = self.get_db_pool()?;
         let (sql, values) = qb.build();
-        let newsql = replace_placeholders(&sql);
-        let mut query = sqlx::query_as::<_, T>(&newsql);
+        let replaced_sql = replace_placeholders(&sql);
+        let mut query = sqlx::query_as::<_, T>(&replaced_sql);
 
         // Bind parameter values to the query
         for value in values {
             query = query.bind(value);
         }
 
-        // Execute the query and return an optional record
+        // Execute the query and return a single optional record
         query.fetch_optional(&*pool).await
     }
 
-    async fn execute<'a, B, T>(&self, qb: B) -> Result<Self::QueryResult, Error>
+    async fn execute<B>(&self, qb: B) -> Result<PgQueryResult, Error>
     where
-        B: BuilderTrait<T> + Send,
-        T: Send + Unpin + Encode<'a, Self::Database> + Type<Self::Database> + 'a,
+        B: BuilderTrait<DataKind<'a>> + Send + Sync,
     {
         let (sql, values) = qb.build();
         if values.is_empty() {
-            return Err(OperationError::new("No parameters provided".to_string()));
+            return Err(OperationError::db("No parameters provided".to_string()).into());
         }
-        let pool = self.get_db_pool();
+        let pool = self.get_db_pool()?;
         let mut conn = pool.acquire().await?;
         let mut tx = conn.begin().await?;
-        
-        let sql_str: &str = Box::leak(sql.into_boxed_str());
-        let mut query = sqlx::query(sql_str);
 
-        // Bind parameter values to the query
+        let sql_str: &str = Box::leak(sql.into_boxed_str());
+        let replaced_sql = replace_placeholders(&sql_str);
+        let mut query = sqlx::query(&replaced_sql);
+
         for value in values {
             query = query.bind(value);
         }
 
-        // Execute the query and handle the transaction
-        let result = query.execute(&mut *tx).await;
-
-        match result {
+        match query.execute(&mut *tx).await {
             Ok(r) => {
-                // Commit the transaction
                 tx.commit().await?;
                 Ok(r)
-            },
+            }
             Err(e) => {
-                // Rollback the transaction
                 tx.rollback().await?;
                 Err(e)
             }
         }
     }
 
-    fn get_db_pool(&self) -> &'static Pool<Self::Database> {
+    fn get_db_pool(&self) -> Result<Arc<Pool<Postgres>>, Error> {
         connection::get_db_pool()
     }
 }

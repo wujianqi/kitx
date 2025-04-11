@@ -1,115 +1,103 @@
+use std::sync::Arc;
+
 use sqlx::sqlite::{SqliteQueryResult, SqliteRow};
-use sqlx::{Acquire, Encode, Error, FromRow, Pool, Sqlite, Type};
+use sqlx::{Acquire, Error, FromRow, Pool, Sqlite};
 
 use crate::common::builder::BuilderTrait;
-use crate::common::database::DatabaseTrait;
+use crate::common::query::QueryExecutor;
 use crate::common::error::OperationError;
-use crate::sql::select::SelectBuilder;
 use super::connection;
 use super::kind::DataKind;
 
 pub struct SqliteQuery;
 
-impl DatabaseTrait for SqliteQuery {
-    type Database = Sqlite;
-    type Row = SqliteRow;
-    type QueryResult = SqliteQueryResult;
-    type SelectQuery<'a> = SelectBuilder<DataKind<'a>>;
-
-    async fn fetch_one<'a, T>(&self, qb: Self::SelectQuery<'a>) -> Result<T, Error>
+impl<'a> QueryExecutor<DataKind<'a>, Sqlite> for SqliteQuery {
+    async fn fetch_one<T, B>(&self, qb: B) -> Result<T, Error>
     where
-        T: for<'r> FromRow<'r, SqliteRow> + Unpin + Send + 'a,
+        T: for<'r> FromRow<'r, SqliteRow> + Unpin + Send,
+        B: BuilderTrait<DataKind<'a>> + Send + Sync,
     {
         let (sql, values) = qb.build();
-        if values.is_empty() {
-            return Err(OperationError::new("No parameters provided".to_string()));
-        }
-        let pool = self.get_db_pool();
+        let pool = self.get_db_pool()?;
         let mut query = sqlx::query_as::<_, T>(&sql);
 
         // Bind parameter values to the query
         for value in values {
-            query = query.bind(value)
+            query = query.bind(value);
         }
 
         // Execute the query and return a single record
         query.fetch_one(&*pool).await
     }
 
-    async fn fetch_all<'a, T>(&self, qb: Self::SelectQuery<'a>) -> Result<Vec<T>, Error>
+    async fn fetch_all<T, B>(&self, qb: B) -> Result<Vec<T>, Error>
     where
-        T: for<'r> FromRow<'r, SqliteRow> + Unpin + Send + 'a,
+        T: for<'r> FromRow<'r, SqliteRow> + Unpin + Send,
+        B: BuilderTrait<DataKind<'a>> + Send + Sync,
     {
-        let pool = self.get_db_pool();
+        let pool = self.get_db_pool()?;
         let (sql, values) = qb.build();
         let mut query = sqlx::query_as::<_, T>(&sql);
 
         // Bind parameter values to the query
         for value in values {
-            query = query.bind(value)
+            query = query.bind(value);
         }
 
         // Execute the query and return multiple records
         query.fetch_all(&*pool).await
     }
 
-    async fn fetch_optional<'a, T>(&self, qb: Self::SelectQuery<'a>) -> Result<Option<T>, Error>
+    async fn fetch_optional<T, B>(&self, qb: B) -> Result<Option<T>, Error>
     where
-        T: for<'r> FromRow<'r, SqliteRow> + Unpin + Send + 'a,
+        T: for<'r> FromRow<'r, SqliteRow> + Unpin + Send,
+        B: BuilderTrait<DataKind<'a>> + Send + Sync,
     {
-        let pool = self.get_db_pool();
+        let pool = self.get_db_pool()?;
         let (sql, values) = qb.build();
         let mut query = sqlx::query_as::<_, T>(&sql);
 
         // Bind parameter values to the query
         for value in values {
-            query = query.bind(value)
+            query = query.bind(value);
         }
 
         // Execute the query and return a single optional record
         query.fetch_optional(&*pool).await
     }
 
-    async fn execute<'a, B, T>(&self, qb: B) -> Result<Self::QueryResult, Error>
+    async fn execute<B>(&self, qb: B) -> Result<SqliteQueryResult, Error>
     where
-        B: BuilderTrait<T> + Send,
-        T: Send + Unpin + Encode<'a, Self::Database> + Type<Self::Database> + 'a,
+        B: BuilderTrait<DataKind<'a>> + Send + Sync,
     {
         let (sql, values) = qb.build();
         if values.is_empty() {
-            return Err(OperationError::new("No parameters provided".to_string()));
+            return Err(OperationError::db("No parameters provided".to_string()).into());
         }
-        let pool = self.get_db_pool();
+        let pool = self.get_db_pool()?;
         let mut conn = pool.acquire().await?;
         let mut tx = conn.begin().await?;
-        
+
         let sql_str: &str = Box::leak(sql.into_boxed_str());
         let mut query = sqlx::query(sql_str);
 
-        // Bind parameter values to the query
         for value in values {
             query = query.bind(value);
         }
-        //dbg!(&sql_str);
 
-        // Execute the query and handle the transaction
-        let result = query.execute(&mut *tx).await;
-
-        match result {
+        match query.execute(&mut *tx).await {
             Ok(r) => {
-                // Commit the transaction
                 tx.commit().await?;
                 Ok(r)
             }
             Err(e) => {
-                // Rollback the transaction
                 tx.rollback().await?;
                 Err(e)
             }
         }
     }
 
-    fn get_db_pool(&self) -> &'static Pool<Self::Database> {
+    fn get_db_pool(&self) -> Result<Arc<Pool<Sqlite>>, Error> {
         connection::get_db_pool()
     }
 }

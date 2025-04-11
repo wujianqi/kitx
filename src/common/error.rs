@@ -1,5 +1,7 @@
-use sqlx::error::{DatabaseError, ErrorKind};
 use std::{error::Error, fmt};
+#[cfg(any(feature = "mysql", feature = "sqlite", feature = "postgres"))]
+use sqlx::error::{DatabaseError, ErrorKind};
+#[cfg(any(feature = "mysql", feature = "sqlite", feature = "postgres"))]
 use sqlx::Error as SqlxError;
 
 #[derive(Debug)]
@@ -15,6 +17,22 @@ impl fmt::Display for OperationError {
 
 impl Error for OperationError {}
 
+impl OperationError {
+       
+    /// Creates a new OperationError instance.
+    /// # Arguments
+    /// * `message` - The error message.
+    pub fn new(message: String) -> OperationError {
+        OperationError { message }
+    }
+
+    #[cfg(any(feature = "mysql", feature = "sqlite", feature = "postgres"))]
+    pub fn db(message: String) -> SqlxError {
+        SqlxError::Database(Box::new(OperationError { message }))
+    }
+}
+
+#[cfg(any(feature = "mysql", feature = "sqlite", feature = "postgres"))]
 impl DatabaseError for OperationError {
     fn as_error(&self) -> &(dyn Error + Send + Sync + 'static) {
         self
@@ -32,15 +50,5 @@ impl DatabaseError for OperationError {
 
     fn kind(&self) -> ErrorKind {
         ErrorKind::Other
-    }
-}
-
-impl OperationError {
-
-    /// Creates a new OperationError instance.
-    /// # Arguments
-    /// * `message` - The error message.
-    pub fn new(message: String) -> SqlxError {
-        SqlxError::Database(Box::new(OperationError { message }))
     }
 }

@@ -10,7 +10,7 @@ use sqlx::types::Decimal;
 use serde_json::Value;
 use uuid::Uuid;
 
-use crate::common::util::unwrap_option;
+use crate::utils::value::{unwrap_option, ValueConvert};
 
 /// Enum representing PostgreSQL data types, supporting the main PostgreSQL type system
 #[derive(Default, Debug, Clone)]
@@ -144,36 +144,38 @@ impl PgHasArrayType for DataKind<'_> {
     }
 }
 
-/// Converts a value of any type to the `DataKind` enum
-pub fn value_convert<'a>(value: &dyn Any) -> DataKind<'a> {
-    macro_rules! try_convert {
-        ($($type:ty => $variant:expr),*) => {
-            $(if let Some(v) = unwrap_option::<$type>(value) {
-                return $variant(v);
-            })*
-            return DataKind::Null;
-        };
-    }
+impl<'a> ValueConvert<DataKind<'a>> for DataKind<'a> {    
+    /// Convert any type of value to the `DataKind` enum type.
+    fn convert(value: &dyn Any) -> DataKind<'a> {
+        macro_rules! try_convert {
+            ($($type:ty => $variant:expr),*) => {
+                $(if let Some(v) = unwrap_option::<$type>(value) {
+                    return $variant(v);
+                })*
+                return DataKind::Null;
+            };
+        }
 
-    try_convert!(
-        String => |v: &String| DataKind::Text(Cow::Owned(v.into())),
-        &str => |v: &'a str| DataKind::Text(Cow::Borrowed(v)),
-        i16 => |v: &i16| DataKind::Int2(*v),
-        i32 => |v: &i32| DataKind::Int4(*v),
-        i64 => |v: &i64| DataKind::Int8(*v),
-        f32 => |v: &f32| DataKind::Float4(*v),
-        f64 => |v: &f64| DataKind::Float8(*v),
-        NaiveDate => |v: &NaiveDate| DataKind::Date(*v),
-        NaiveTime => |v: &NaiveTime| DataKind::Time(*v),
-        NaiveDateTime => |v: &NaiveDateTime| DataKind::Timestamp(*v),
-        DateTime<Utc> => |v: &DateTime<Utc>| DataKind::Timestamptz(*v),
-        Vec<u8> => |v: &Vec<u8>| DataKind::Bytea(Cow::Owned(v.clone())),
-        &[u8] => |v: &&'a [u8]| DataKind::Bytea(Cow::Borrowed(*v)),
-        bool => |v: &bool| DataKind::Bool(*v),
-        Uuid => |v: &Uuid| DataKind::Uuid(*v),
-        Decimal => |v: &Decimal| DataKind::Numeric(*v),
-        Value => |v: &Value| DataKind::Json(v.clone())
-    );
+        try_convert!(
+            String => |v: &String| DataKind::Text(Cow::Owned(v.into())),
+            &str => |v: &'a str| DataKind::Text(Cow::Borrowed(v)),
+            i16 => |v: &i16| DataKind::Int2(*v),
+            i32 => |v: &i32| DataKind::Int4(*v),
+            i64 => |v: &i64| DataKind::Int8(*v),
+            f32 => |v: &f32| DataKind::Float4(*v),
+            f64 => |v: &f64| DataKind::Float8(*v),
+            NaiveDate => |v: &NaiveDate| DataKind::Date(*v),
+            NaiveTime => |v: &NaiveTime| DataKind::Time(*v),
+            NaiveDateTime => |v: &NaiveDateTime| DataKind::Timestamp(*v),
+            DateTime<Utc> => |v: &DateTime<Utc>| DataKind::Timestamptz(*v),
+            Vec<u8> => |v: &Vec<u8>| DataKind::Bytea(Cow::Owned(v.clone())),
+            &[u8] => |v: &&'a [u8]| DataKind::Bytea(Cow::Borrowed(*v)),
+            bool => |v: &bool| DataKind::Bool(*v),
+            Uuid => |v: &Uuid| DataKind::Uuid(*v),
+            Decimal => |v: &Decimal| DataKind::Numeric(*v),
+            Value => |v: &Value| DataKind::Json(v.clone())
+        );
+    }
 }
 
 macro_rules! impl_from {

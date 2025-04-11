@@ -107,10 +107,55 @@ impl<T: Debug + Clone> InsertBuilder<T> {
         self
     }
 
-    /// NOTE: Supported in PostgreSQL8.2+、Mysql 8.0.21+、Sqlite 3.35+ only.
+    /// NOTE: Supported in PostgreSQL 8.2+、Mysql 8.0.21+、Sqlite 3.35+ only.
     pub fn returning(mut self, columns: &[&str]) -> Self {
         self.sql.push_str(&build_returning_clause(columns));
         self
+    }
+
+    /// Adds an `ON CONFLICT` clause with a `DO UPDATE` action.
+    /// NOTE: Supported in Sqlite 3.24+ 、PostgreSQL、Mysql(`ON DUPLICATE`) only.
+    #[cfg(any(feature = "mysql", feature = "sqlite", feature = "postgres"))]
+    pub fn on_conflict_do_update(self, 
+        conflict_target: &str, 
+        excluded_columns: &[&str]
+    ) -> Self {
+        let mut sql = String::with_capacity(64);
+    
+        #[cfg(any(feature = "sqlite", feature = "postgres"))]
+        {
+            sql.push_str(" ON CONFLICT (");
+            sql.push_str(conflict_target);
+            sql.push_str(") DO UPDATE SET ");
+        
+            // Append the SET clause for excluded columns
+            for (i, column) in excluded_columns.iter().enumerate() {
+                if i > 0 {
+                    sql.push_str(", ");
+                }
+                sql.push_str(column);
+                sql.push_str(" = EXCLUDED.");
+                sql.push_str(column);
+            }
+        }
+
+        #[cfg(feature = "mysql")]
+        {
+            let _ = conflict_target;
+            sql.push_str(" ON DUPLICATE KEY UPDATE ");
+
+            for (i, column) in excluded_columns.iter().enumerate() {
+                if i > 0 {
+                    sql.push_str(", ");
+                }
+                sql.push_str(column);
+                sql.push_str(" = VALUES(");
+                sql.push_str(column);
+                sql.push_str(")");
+            }
+        }
+    
+        self.append(sql, None)
     }
 }
 

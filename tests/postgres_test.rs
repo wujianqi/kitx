@@ -35,7 +35,7 @@ mod postgres_tests {
     use kitx::postgres::connection::init_db_pool;
     use kitx::postgres::operations::Operations;
     use kitx::postgres::sql::{col, Select};
-    use kitx::common::util::empty_query;
+    use kitx::utils::query::empty_query;
 
     async fn setup_db_pool() {
         let database_url = get_database_url();
@@ -49,7 +49,7 @@ mod postgres_tests {
     #[tokio::test]
     async fn insert_one() {
         setup_db_pool().await;
-        let article = Article::new("test","test2", None);
+        let article = Article::new("test","testvvv", None);
         let operations = get_operations();
         run_op(|| operations.insert_one(article)).await;  
     }

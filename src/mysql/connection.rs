@@ -8,7 +8,7 @@ use std::sync::Arc;
 use tokio::sync::OnceCell;
 use std::time::Duration;
 
-use crate::common::util;
+use crate::utils::db;
 
 static DB_POOL: OnceCell<Arc<MySqlPool>> = OnceCell::const_new();
 
@@ -18,16 +18,16 @@ pub async fn init_db_pool_custom(pool: Pool<MySql>) -> Result<&'static MySqlPool
     let pool = Arc::new(pool);
 
     // Force initialization of OnceCell to ensure the connection pool is initialized
-    DB_POOL.get_or_try_init(|| async { Ok(pool.clone()) }).await
+    DB_POOL.get_or_try_init(|| async { Ok(pool) }).await
         .map(|arc| arc.as_ref())
 }
 
 /// Initializes the database connection pool with a database URL.
 pub async fn init_db_pool(database_url: &str) -> Result<&'static MySqlPool, Error> {
-    let (maxc, minc, warmupc) = util::db_connect_limits(Some(20));
+    let (maxc, minc, warmupc) = db::connect_limits(Some(20));
 
     let connect_options = MySqlConnectOptions::from_str(database_url)
-        .map_err(|e| OperationError::new(format!("Failed to parse MySQL connection URL: {}", e)))?
+        .map_err(|e| OperationError::db(format!("Failed to parse MySQL connection URL: {}", e)))?
         .ssl_mode(MySqlSslMode::Disabled);
 
     let pool = PoolOptions::new()
@@ -39,7 +39,7 @@ pub async fn init_db_pool(database_url: &str) -> Result<&'static MySqlPool, Erro
         .test_before_acquire(true)
         .connect_with(connect_options)
         .await
-        .map_err(|e| OperationError::new(format!("Failed to initialize MySQL connection pool: {}", e)))?;
+        .map_err(|e| OperationError::db(format!("Failed to initialize MySQL connection pool: {}", e)))?;
 
     let _ = warmup_connect(&pool, warmupc).await;
 
@@ -55,6 +55,10 @@ async fn warmup_connect(pool: &MySqlPool, warmup_num: u32) -> Result<(), Error> 
 }
 
 /// Gets a reference to the database connection pool.
-pub fn get_db_pool() -> &'static MySqlPool {
-    DB_POOL.get().expect("Database pool not initialized")
+pub fn get_db_pool() -> Result<Arc<MySqlPool>, Error> {
+    DB_POOL.get()
+        .cloned()
+        .ok_or_else(||{
+        OperationError::db("Database pool not initialized".to_string())
+    })
 }

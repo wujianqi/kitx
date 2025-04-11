@@ -8,7 +8,7 @@ use std::sync::Arc;
 use tokio::sync::OnceCell;
 use std::time::Duration;
 
-use crate::common::util;
+use crate::utils::db;
 
 // Global static variable to store the database connection pool
 static DB_POOL: OnceCell<Arc<SqlitePool>> = OnceCell::const_new();
@@ -19,16 +19,16 @@ pub async fn init_db_pool_custom<'a>(pool: Pool<Sqlite>) -> Result<&'a SqlitePoo
     let pool = Arc::new(pool);
 
     // Force evaluation of OnceCell to ensure the connection pool is initialized
-    DB_POOL.get_or_try_init(|| async { Ok(pool.clone()) }).await
+    DB_POOL.get_or_try_init(|| async { Ok(pool) }).await
         .map(|arc| arc.as_ref())
 }
 
 /// Initializes the database connection pool with the database URL and enables WAL mode.
 pub async fn init_db_pool(database_url: &str) -> Result<&SqlitePool, Error> {
-    let (maxc, minc, _) = util::db_connect_limits(None);
+    let (maxc, minc, _) = db::connect_limits(None);
 
     let connect_options = SqliteConnectOptions::from_str(database_url)
-        .map_err(|e| OperationError::new(format!("Failed to parse SQLite connection URL: {}", e)))?
+        .map_err(|e| OperationError::db(format!("Failed to parse SQLite connection URL: {}", e)))?
         .create_if_missing(true)
         .journal_mode(SqliteJournalMode::Wal);
 
@@ -39,12 +39,14 @@ pub async fn init_db_pool(database_url: &str) -> Result<&SqlitePool, Error> {
         .idle_timeout(Duration::from_secs(30))
         .connect_with(connect_options)
         .await
-        .map_err(|e| OperationError::new(format!("Failed to initialize SQLite connection pool: {}", e)))?;
+        .map_err(|e| OperationError::db(format!("Failed to initialize SQLite connection pool: {}", e)))?;
 
     init_db_pool_custom(pool).await
 }
 
 /// Gets a reference to the database connection pool.
-pub fn get_db_pool() -> &'static SqlitePool {
-    DB_POOL.get().expect("Database pool not initialized")
+pub fn get_db_pool() -> Result<Arc<SqlitePool>, Error> {
+    DB_POOL.get()
+        .cloned() // Clone the Arc to return a new reference
+        .ok_or_else(|| OperationError::db("Database pool not initialized".to_string()))
 }
