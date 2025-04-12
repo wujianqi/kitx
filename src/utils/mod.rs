@@ -1,5 +1,5 @@
 pub mod value;
-pub mod text;
+pub mod chars;
 
 #[cfg(any(feature = "mysql", feature = "sqlite", feature = "postgres"))]
 pub(crate) mod db;

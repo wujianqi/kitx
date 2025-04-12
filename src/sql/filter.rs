@@ -80,14 +80,14 @@ impl<T: Debug + Clone> Expr<T> {
         self
     }
 
-    fn add_subquery(&mut self, subquery: SelectBuilder<T>, op: &str) -> &mut Self {
+    fn add_subquery(subquery: SelectBuilder<T>, op: &str) -> (String, Vec<T>) {
         let (subquery_sql, subquery_values) = subquery.build();
-        self.clause.push_str(op);
-        self.clause.push_str("(");
-        self.clause.push_str(&subquery_sql);
-        self.clause.push_str(")");
-        self.values.extend(subquery_values);
-        self
+        let mut newsql = String::with_capacity(subquery_sql.len() + 12);
+        newsql.push_str(op);
+        newsql.push_str("(");
+        newsql.push_str(&subquery_sql);
+        newsql.push_str(")");
+        (newsql, subquery_values)
     }
 
     /// Creates an IN subquery condition.
@@ -97,11 +97,12 @@ impl<T: Debug + Clone> Expr<T> {
     ///
     /// # Returns
     /// - `Expr<T>`: A new Expr instance with the IN subquery condition.
-    pub fn in_subquery(mut self, column: &str, subquery: SelectBuilder<T>) -> Self {
-        self.clause.push_str(" ");
-        self.clause.push_str(column);
-        self.add_subquery(subquery, " IN ");
-        self
+    pub fn in_subquery(column: &str, subquery: SelectBuilder<T>) -> Self {
+        let mut clause = String::with_capacity(60);
+        let (query_sql, values) = Self::add_subquery(subquery, " IN ");
+        clause.push_str(column);
+        clause.push_str(&query_sql);
+        Expr { clause, values }
     }
 
     /// Creates an EXISTS subquery condition.
@@ -111,9 +112,9 @@ impl<T: Debug + Clone> Expr<T> {
     ///
     /// # Returns
     /// - `Expr<T>`: A new Expr instance with the EXISTS subquery condition.
-    pub fn exists(mut self, subquery: SelectBuilder<T>) -> Self {
-        self.add_subquery(subquery, " EXISTS ");
-        self
+    pub fn exists(subquery: SelectBuilder<T>) -> Self {
+        let (clause, values) = Self::add_subquery(subquery, " EXISTS ");
+        Expr { clause, values }
     }
 
     /// Creates a NOT EXISTS subquery condition.
@@ -123,9 +124,9 @@ impl<T: Debug + Clone> Expr<T> {
     ///
     /// # Returns
     /// - `Expr<T>`: A new Expr instance with the NOT EXISTS subquery condition.
-    pub fn not_exists(mut self, subquery: SelectBuilder<T>) -> Self {
-        self.add_subquery(subquery, " NOT EXISTS ");
-        self
+    pub fn not_exists(subquery: SelectBuilder<T>) -> Self {
+        let (clause, values) = Self::add_subquery(subquery, " NOT EXISTS ");
+        Expr { clause, values }
     }
 
     /// Creates a new Expr with a specific column name.

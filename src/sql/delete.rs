@@ -91,16 +91,14 @@ impl<T: Debug + Clone> FilterTrait<T> for DeleteBuilder<T> {
 }
 
 impl<T: Debug + Clone> BuilderTrait<T> for DeleteBuilder<T> {
-    /// Builds the DELETE statement.
-    fn build(&self) -> (String, Vec<T>) {
-        let mut sql = self.sql.clone();
+    fn build(self) -> (String, Vec<T>) {
+        let mut sql = self.sql;
         let mut values = vec![];
 
         // Process WHERE clauses
         if !self.where_clauses.is_empty() {
-            let where_clauses = &self.where_clauses;
-            let (where_sql, where_values) = build_where_clause(where_clauses.to_vec());
-            if !sql.is_empty() && !sql.ends_with(' ') {
+            let (where_sql, where_values) = build_where_clause(self.where_clauses);
+            if !sql.ends_with(' ') {
                 sql.push(' ');
             }
             sql.push_str(&where_sql);

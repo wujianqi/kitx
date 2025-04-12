@@ -19,7 +19,7 @@ where
 {
     pub table_name: &'a str,
     pub primary_key: (&'a str, bool),
-    pub soft_delete_config: Option<(&'static str, Vec<&'static str>)>, 
+    pub soft_delete_config: Option<&'a (&'static str, Vec<&'static str>)>, 
     pub global_filters: Option<(Expr<D>, Vec<&'static str>)>,    
     _marker: PhantomData<(T, DB, VC)>,
 }
@@ -35,7 +35,7 @@ where
     pub fn new(
         table_name: &'a str,
         primary_key: (&'a str, bool),
-        soft_delete_config: Option<(&'static str, Vec<&'static str>)>, 
+        soft_delete_config: Option<&'a (&'static str, Vec<&'static str>)>, 
         global_filters: Option<(Expr<D>, Vec<&'static str>)>,
     ) -> Self {
         Self {

@@ -1,7 +1,7 @@
 /// SQL builder trait, defining common SQL building methods.
 pub trait BuilderTrait<T> {
     /// Build the final SQL query and parameters.
-    fn build(&self) -> (String, Vec<T>);
+    fn build(self) -> (String, Vec<T>);
 }
 
 /// Filter clause trait, extending BuilderTrait with common where clause methods.

@@ -39,7 +39,8 @@ mod sqlite_tests {
             connection::init_db_pool, 
             operations::Operations, 
             sql::{col, Select}
-        }, utils::query::{dyn_query, empty_query}
+        }, 
+        utils::query::empty_query
     };
 
     async fn setup_db_pool() {
@@ -87,9 +88,9 @@ mod sqlite_tests {
         let operations = get_operations();
         //let qf: Option<Box<dyn Fn(&mut Select) + Send>> = None;
 
-        /* let dq = dyn_query(|builder: &mut Select| {
+        /* let dq = |builder: &mut Select| {
             builder.where_mut(col("a_id").gt(1));
-        }); */
+        }; */
 
         let dq = empty_query();
 
@@ -107,9 +108,9 @@ mod sqlite_tests {
     async fn get_one() {
         setup_db_pool().await;
         let operations = get_operations();
-        let qf = dyn_query(|builder: &mut Select| {
+        let qf = |builder: &mut Select| {
             builder.where_mut(col("a_id").eq(2));
-          });
+        };
         run_op(|| operations.get_one(qf)).await;
     }
 
@@ -117,9 +118,9 @@ mod sqlite_tests {
     async fn get_list_by_cursor() {
         setup_db_pool().await;
         let operations = get_operations();
-        let qf = Some(|builder: &mut Select| {
+        let qf = |builder: &mut Select| {
             builder.where_mut(col("a_id").gt(1)).order_by_mut("a_id", false);
-          });
+        };
         run_op(|| operations.get_list_by_cursor(5, qf)).await;
     }
 
@@ -127,9 +128,9 @@ mod sqlite_tests {
     async fn get_list_paginated() {
         setup_db_pool().await;
         let operations = get_operations();
-        let qf = Some(|builder: &mut Select| {
+        let qf = |builder: &mut Select| {
             builder.where_mut(col("a_id").gt(1));
-          });
+        };
         run_op(|| operations.get_list_paginated(1, 5, qf)).await;
     }
 

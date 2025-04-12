@@ -6,7 +6,7 @@ use sqlx::{Acquire, Error, FromRow, Pool, Postgres};
 use crate::common::builder::BuilderTrait;
 use crate::common::query::QueryExecutor;
 use crate::common::error::OperationError;
-use crate::utils::text::replace_placeholders;
+use crate::utils::chars::replace_placeholders;
 use super::connection;
 use super::kind::DataKind;
 

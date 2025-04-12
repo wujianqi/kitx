@@ -37,15 +37,13 @@ where
         Ok(builder)
     }
 
-    pub fn delete_by_cond<F>(&self, query_condition: Option<F>) -> DeleteBuilder<D>
+    pub fn delete_by_cond<F>(&self, query_condition: F) -> DeleteBuilder<D>
     where
         F: Fn(&mut DeleteBuilder<D>) + Send + 'a,
     {
         let mut builder = DeleteBuilder::from(self.table_name);
         self.apply_global_filters(&mut builder);
-        if let Some(condition) = query_condition {
-            condition(&mut builder);
-        }
+        query_condition(&mut builder);
         builder
     }
 

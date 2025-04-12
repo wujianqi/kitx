@@ -88,9 +88,9 @@ mod postgres_tests {
     async fn get_one() {
         setup_db_pool().await;
         let operations = get_operations();
-        let qf = Some(|builder: &mut Select| {
+        let qf = |builder: &mut Select| {
             builder.where_mut(col("a_id").eq(2));
-          });
+        };
         run_op(|| operations.get_one(qf)).await;
     }
 
@@ -98,9 +98,9 @@ mod postgres_tests {
     async fn get_list_by_cursor() {
         setup_db_pool().await;
         let operations = get_operations();
-        let qf = Some(|builder: &mut Select| {
+        let qf = |builder: &mut Select| {
             builder.where_mut(col("a_id").gt(1)).order_by_mut("a_id", false);
-          });
+        };
         run_op(|| operations.get_list_by_cursor(5, qf)).await;
     }
 
@@ -108,9 +108,9 @@ mod postgres_tests {
     async fn get_list_paginated() {
         setup_db_pool().await;
         let operations = get_operations();
-        let qf = Some(|builder: &mut Select| {
+        let qf = |builder: &mut Select| {
             builder.where_mut(col("a_id").gt(1));
-          });
+        };
         run_op(|| operations.get_list_paginated(1, 5, qf)).await;
     }
 

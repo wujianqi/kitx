@@ -27,15 +27,13 @@ where
     }
 
     // Query operations
-    pub fn get_list<F>(&self, query_condition: Option<F>) -> SelectBuilder<D>
+    pub fn get_list<F>(&self, query_condition: F) -> SelectBuilder<D>
     where
         F: Fn(&mut SelectBuilder<D>) + 'a,
     {
         let mut builder = self.select_builder();
         self.apply_global_filters(&mut builder);
-        if let Some(condition) = query_condition {
-            condition(&mut builder);
-        }
+        query_condition(&mut builder);
         builder
     }
 
@@ -47,15 +45,13 @@ where
         builder
     }
 
-    pub fn get_one<F>(&self, query_condition: Option<F>) -> SelectBuilder<D>
+    pub fn get_one<F>(&self, query_condition: F) -> SelectBuilder<D>
     where
         F: Fn(&mut SelectBuilder<D>) + 'a,
     {
         let mut builder = self.select_builder();
         self.apply_global_filters(&mut builder);
-        if let Some(condition) = query_condition {
-            condition(&mut builder);
-        }
+        query_condition(&mut builder);
         builder
     }
 
@@ -63,7 +59,7 @@ where
         &self,
         page_number: u64,
         page_size: u64,
-        query_condition: Option<F>,
+        query_condition: F,
     ) -> Result<SelectBuilder<D>, OperationError>
     where
         F: Fn(&mut SelectBuilder<D>) + 'a,
@@ -79,9 +75,7 @@ where
             .limit_offset(D::from(page_size), Some(D::from(offset)));
 
         self.apply_global_filters(&mut builder);
-        if let Some(condition) = query_condition {
-            condition(&mut builder);
-        }
+        query_condition(&mut builder);
 
         Ok(builder)
     }
@@ -89,7 +83,7 @@ where
     pub fn get_list_by_cursor<F>(
         &self,
         limit: u64,
-        query_condition: Option<F>,
+        query_condition: F,
     ) -> Result<SelectBuilder<D>, OperationError>
     where
         F: Fn(&mut SelectBuilder<D>) + 'a,
@@ -102,26 +96,22 @@ where
             .limit_offset(D::from(limit), None::<D>);
 
         self.apply_global_filters(&mut builder);
-        if let Some(condition) = query_condition {
-            condition(&mut builder);
-        }
+        query_condition(&mut builder);
 
         Ok(builder)
     }
 
-    pub fn exist<F>(&self, query_condition: Option<F>) -> SelectBuilder<D>
+    pub fn exist<F>(&self, query_condition: F) -> SelectBuilder<D>
     where
         F: Fn(&mut SelectBuilder<D>) + 'a,
     {
         let mut builder = SelectBuilder::columns(&["1"]).from(self.table_name);
         self.apply_global_filters(&mut builder);
-        if let Some(condition) = query_condition {
-            condition(&mut builder);
-        }
+        query_condition(&mut builder);
         builder
     }
 
-    pub fn count<F>(&self, query_condition: Option<F>) -> SelectBuilder<D>
+    pub fn count<F>(&self, query_condition: F) -> SelectBuilder<D>
     where
         F: Fn(&mut SelectBuilder<D>) + 'a,
     {
@@ -132,9 +122,7 @@ where
 
         let mut builder = SelectBuilder::columns(&[&column_name]).from(self.table_name);
         self.apply_global_filters(&mut builder);
-        if let Some(condition) = query_condition {
-            condition(&mut builder);
-        }
+        query_condition(&mut builder);
         builder
     }
     

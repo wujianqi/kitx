@@ -1,39 +1,33 @@
+use std::sync::Arc;
 use std::marker::PhantomData;
 
-/// Creates a dynamic query function.
-pub fn dyn_query<'a, F, Q>(query_fn: F) -> Option<Box<dyn Fn(&mut Q) + Send + 'a>>
-where
-    F: Fn(&mut Q) + Send + 'a
-{
-    Some(Box::new(query_fn))
+/// Create an empty query condition.
+pub fn empty_query<'a, Q>() -> Box<dyn Fn(&mut Q) + Send + Sync + 'a> {
+    Box::new(|_| {})
 }
 
-/// Creates an empty query function.
-pub fn empty_query<'a, Q>() -> Option<Box<dyn Fn(&mut Q) + Send + 'a>> {
-    None
-}
-
-/// A query condition. This is a wrapper around a function that takes a query and returns a boolean.
+/// A query condition wrapper for concurrent use.
 pub struct QueryCondition<'a, Q, F>
 where
-    F: Fn(&mut Q) + Send + 'a,
+    F: Fn(&mut Q) + Send + Sync + 'a,
 {
-    condition: Option<F>,
-    _marker: PhantomData<&'a Q>
+    condition: Arc<F>,
+    _marker: PhantomData<&'a Q>,
 }
 
 impl<'a, Q, F> QueryCondition<'a, Q, F>
 where
-    F: Fn(&mut Q) + Send + 'a,
+    F: Fn(&mut Q) + Send + Sync + 'a,
 {
-    pub fn new(query_fn: Option<F>) -> QueryCondition<'a, Q, F> {
+    pub fn new(query_fn: F) -> Self {
         QueryCondition {
-            condition: query_fn,
-            _marker: PhantomData
+            condition: Arc::new(query_fn),
+            _marker: PhantomData,
         }
     }
 
-    pub fn take(&mut self) -> Option<F> {
-        self.condition.take()
+    pub fn get(&self) -> impl Fn(&mut Q) + Send + Sync + 'a {
+        let arc_condition = self.condition.clone();
+        move |q| arc_condition(q)
     }
 }

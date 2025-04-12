@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 use crate::common::builder::{BuilderTrait, QueryTrait, FilterTrait};
 use super::{
-    agg::Agg, case_when::CW, filter::Expr, helper::{
+    agg::Agg, case_when::CW, cte::WithCTE, filter::Expr, helper::{
         build_limit_offset_clause, 
         build_order_by_clause, 
         build_where_clause, 
@@ -219,6 +219,18 @@ impl<T: Debug + Clone> SelectBuilder<T> {
         self
     }
 
+    /// Adds a WITH clause to the SELECT statement.
+    /// Supported in Mysql 8.0+、Sqlite 3.8.3+ only.
+    pub fn with(mut self, with_cte: WithCTE<T>) -> Self {
+        let (with_sql, with_values) = with_cte.build();
+        let mut new_sql = String::with_capacity(with_sql.len() + self.sql.len());
+        new_sql.push_str(&with_sql);
+        new_sql.push_str(&self.sql);
+        self.sql = new_sql;
+        self.values.extend(with_values);
+        self
+    }
+
 }
 
 
@@ -267,17 +279,16 @@ impl<T: Debug + Clone> QueryTrait<T> for SelectBuilder<T> {
 }
 
 impl<T: Debug + Clone> BuilderTrait<T> for SelectBuilder<T> {
-    /// Builds the final SQL query and parameter values.
-    fn build(&self) -> (String, Vec<T>) {
-        let mut final_sql = self.sql.clone();
-        let mut values = self.values.clone();
+    fn build(self) -> (String, Vec<T>) {
+        let mut final_sql = self.sql;
+        let mut values = self.values;
 
         // Process JOIN clauses
         let mut is_first_join = true;
-        for join in self.joins.clone() {
+        for join in self.joins {
             let (join_sql, join_values) = join.build();
             if !is_first_join {
-                final_sql.push_str(" ");
+                final_sql.push(' ');
             }
             final_sql.push_str(&join_sql);
             values.extend(join_values);
@@ -308,9 +319,9 @@ impl<T: Debug + Clone> BuilderTrait<T> for SelectBuilder<T> {
         }
 
         // Process LIMIT/OFFSET clauses
-        if let Some((limit, offset)) = self.limit_offset.clone() {
+        if let Some((limit, offset)) = self.limit_offset {
             let (limit_offset_sql, limit_offset_values) = build_limit_offset_clause(limit, offset);
-            final_sql.push_str(" ");
+            final_sql.push(' ');
             final_sql.push_str(&limit_offset_sql);
             values.extend(limit_offset_values);
         }

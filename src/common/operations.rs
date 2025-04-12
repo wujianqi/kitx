@@ -52,9 +52,9 @@ where
     /// 
     /// # Returns
     /// Returns the number of affected rows.
-    fn update_one<F>(&self, entity: T, query_condition: Option<F>) -> impl Future<Output = Result<DB::QueryResult, Error>> + Send
+    fn update_one<F>(&self, entity: T, query_condition: F) -> impl Future<Output = Result<DB::QueryResult, Error>> + Send
     where
-        F: Fn(&mut Self::UpdateFilter<'a>) + Send + 'a;
+        F: Fn(&mut Self::UpdateFilter<'a>) + Send + Sync + 'a;
 
     /// Upserts a record into the database.
     /// If the record already exists, it updates the record.
@@ -96,9 +96,9 @@ where
     /// # Returns
     /// Returns the number of affected rows.
     ///
-    fn delete_by_cond<F>(&self, query_condition: Option<F>) -> impl Future<Output = Result<DB::QueryResult, Error>> + Send
+    fn delete_by_cond<F>(&self, query_condition: F) -> impl Future<Output = Result<DB::QueryResult, Error>> + Send
     where
-        F: Fn(&mut Self::DeleteFilter<'a>) + Send + 'a;
+        F: Fn(&mut Self::DeleteFilter<'a>) + Send + Sync + 'a;
 
 
     /// Queries and returns all records in the table, supporting conditional queries.
@@ -108,9 +108,9 @@ where
     /// 
     /// # Returns
     /// Returns a list of records.
-    fn get_list<F>(&self, query_condition: Option<F>) -> impl Future<Output = Result<Vec<T>, Error>> + Send
+    fn get_list<F>(&self, query_condition: F) -> impl Future<Output = Result<Vec<T>, Error>> + Send
     where
-        F: Fn(&mut Self::QueryFilter<'a>) + Send + 'a;
+        F: Fn(&mut Self::QueryFilter<'a>) + Send + Sync + 'a;
 
     /// Queries and returns a single record based on the primary key.
     /// 
@@ -128,9 +128,9 @@ where
     /// 
     /// # Returns
     /// Returns a single record.
-    fn get_one<F>(&self, query_condition: Option<F>) -> impl Future<Output = Result<Option<T>, Error>> + Send
+    fn get_one<F>(&self, query_condition: F) -> impl Future<Output = Result<Option<T>, Error>> + Send
     where
-        F: Fn(&mut Self::QueryFilter<'a>) + Send + 'a;
+        F: Fn(&mut Self::QueryFilter<'a>) + Send + Sync + 'a;
     /// Paginates and returns records in the table, supporting conditional queries.
     /// 
     /// # Parameters
@@ -144,10 +144,10 @@ where
         &self,
         page_number: u64,
         page_size: u64,
-        query_condition: Option<F>,
+        query_condition: F,
     ) -> impl Future<Output = Result<PaginatedResult<T>, Error>> + Send
     where
-        F: Fn(&mut Self::QueryFilter<'a>) + Send + 'a;
+        F: Fn(&mut Self::QueryFilter<'a>) + Send + Sync + 'a;
 
     /// Cursor paginates and returns records in the table, supporting conditional queries.
     /// 
@@ -160,19 +160,19 @@ where
     fn get_list_by_cursor<F>(
         &self,
         limit: u64,
-        query_condition: Option<F>,
+        query_condition: F,
     ) -> impl Future<Output = Result<CursorPaginatedResult<T>, Error>> + Send
     where
         T: Clone,
-        F: Fn(&mut Self::QueryFilter<'a>) + Send + 'a;
+        F: Fn(&mut Self::QueryFilter<'a>) + Send + Sync + 'a;
 
     /// Checks if the value of a field is unique.
     /// 
     /// # Parameters
     /// * `query_condition`: A query condition structure.
-    fn exist<F>(&self, query_condition: Option<F>) -> impl Future<Output = Result<bool, Error>> + Send
+    fn exist<F>(&self, query_condition: F) -> impl Future<Output = Result<bool, Error>> + Send
     where
-        F: Fn(&mut Self::QueryFilter<'a>) + Send + 'a;
+        F: Fn(&mut Self::QueryFilter<'a>) + Send + Sync + 'a;
 
     /// Gets the total number of records, supporting conditional queries.
     /// 
@@ -181,9 +181,9 @@ where
     /// 
     /// # Returns
     /// Returns the total number of records.
-    fn count<F>(&self, query_condition: Option<F>) -> impl Future<Output = Result<i64, Error>> + Send
+    fn count<F>(&self, query_condition: F) -> impl Future<Output = Result<i64, Error>> + Send
     where
-        F: Fn(&mut Self::QueryFilter<'a>) + Send + 'a;
+        F: Fn(&mut Self::QueryFilter<'a>) + Send + Sync + 'a;
 
     /// Restores a single soft-deleted record.
     /// 

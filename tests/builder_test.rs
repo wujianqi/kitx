@@ -1,6 +1,7 @@
 use std::borrow::Cow;
 
 use kitx::common::builder::{BuilderTrait, FilterTrait};
+use kitx::sql::cte::{WithCTE, CTE};
 use kitx::sql::delete::DeleteBuilder;
 use kitx::sql::insert::InsertBuilder;
 use kitx::sql::params::Value;
@@ -123,6 +124,31 @@ fn test_aggregate_functions() {
         sql,
         "SELECT department, COUNT(id) AS total_users, SUM(age) AS total_age, AVG(age) AS avg_age, MIN(age) AS min_age, MAX(age) AS max_age FROM users WHERE age < ? GROUP BY department HAVING COUNT(id) > ?"
     );
+}
+
+#[test]
+fn test_update_with_cte() {
+    let subquery = SelectBuilder::columns(&["id", "name"])
+        .from("users")
+        .where_(Expr::new("age", ">", 18));
+
+    let cte = CTE::new("adult_users", subquery);
+
+    let mut with_cte = WithCTE::new();
+    with_cte.add_cte(cte);
+
+    let update_query = UpdateBuilder::table("employees")
+        .set("salary", 10000)
+        .where_(
+            Expr::in_subquery("id", SelectBuilder::columns(&["id"]).from("adult_users")
+        ))
+        .with(with_cte);
+
+    let (sql, _) = update_query.build();
+
+    let expected_sql = r#"WITH adult_users AS (SELECT id, name FROM users WHERE age > ?) UPDATE employees SET salary = ? WHERE id IN (SELECT id FROM adult_users)"#;
+    assert_eq!(sql.trim(), expected_sql.trim());
+
 }
 
 #[test]

@@ -35,7 +35,7 @@ mod mysql_tests {
     use kitx::mysql::connection::init_db_pool;
     use kitx::mysql::operations::Operations;
     use kitx::mysql::sql::{col, Select};
-    use kitx::utils::query::{dyn_query, empty_query};
+    use kitx::utils::query::empty_query;
 
 
     async fn setup_db_pool() {
@@ -89,9 +89,9 @@ mod mysql_tests {
     async fn get_one() {
         setup_db_pool().await;
         let operations = get_operations();
-        let qf = dyn_query(|builder: &mut Select| {
+        let qf = |builder: &mut Select| {
             builder.where_mut(col("a_id").eq(2));
-          });
+          };
         run_op(|| operations.get_one(qf)).await;
     }
 
@@ -99,9 +99,9 @@ mod mysql_tests {
     async fn get_list_by_cursor() {
         setup_db_pool().await;
         let operations = get_operations();
-        let qf = Some(|builder: &mut Select| {
+        let qf = |builder: &mut Select| {
             builder.where_mut(col("a_id").gt(1)).order_by_mut("a_id", false);
-          });
+        };
         run_op(|| operations.get_list_by_cursor(5, qf)).await;
     }
 
@@ -109,9 +109,9 @@ mod mysql_tests {
     async fn get_list_paginated() {
         setup_db_pool().await;
         let operations = get_operations();
-        let qf = Some(|builder: &mut Select| {
+        let qf = |builder: &mut Select| {
             builder.where_mut(col("a_id").gt(0));
-          });
+        };
         run_op(|| operations.get_list_paginated(1, 5, qf)).await;
     }
 

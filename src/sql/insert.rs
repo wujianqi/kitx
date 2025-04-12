@@ -1,7 +1,7 @@
 use crate::common::builder::BuilderTrait;
 use std::fmt::Debug;
 
-use super::helper::build_returning_clause;
+use super::{cte::WithCTE, helper::build_returning_clause};
 
 // INSERT-specific builder
 #[derive(Default, Debug, Clone)]
@@ -58,20 +58,20 @@ impl<T: Debug + Clone> InsertBuilder<T> {
     pub fn values(mut self, values: Vec<Vec<T>>) -> Self {
         self.sql.push_str("VALUES");
         let mut cols_values = Vec::new();
-        for (row_idx, row) in values.iter().enumerate() {
+        for (row_idx, row) in values.into_iter().enumerate() {
             if row_idx > 0 {
                 self.sql.push(',');
             }
             self.sql.push(' ');
             self.sql.push('(');
-            for (i, _) in row.iter().enumerate() {
+            for (i, val) in row.into_iter().enumerate() {
                 if i > 0 {
                     self.sql.push_str(", ");
                 }
                 self.sql.push('?');
+                cols_values.push(val);
             }
             self.sql.push(')');
-            cols_values.extend(row.clone());
         }
 
         if self.sql.ends_with(',') {
@@ -107,7 +107,19 @@ impl<T: Debug + Clone> InsertBuilder<T> {
         self
     }
 
-    /// NOTE: Supported in PostgreSQL 8.2+、Mysql 8.0.21+、Sqlite 3.35+ only.
+    /// Adds a WITH clause to the SELECT statement.
+    /// Supported in Mysql 8.0+、Sqlite 3.8.3+ only.
+    pub fn with(mut self, with_cte: WithCTE<T>) -> Self {
+        let (with_sql, with_values) = with_cte.build();
+        let mut new_sql = String::with_capacity(with_sql.len() + self.sql.len());
+        new_sql.push_str(&with_sql);
+        new_sql.push_str(&self.sql);
+        self.sql = new_sql;
+        self.values.extend(with_values);
+        self
+    }
+
+    /// NOTE: Supported in Mysql 8.0.21+、Sqlite 3.35+ only.
     pub fn returning(mut self, columns: &[&str]) -> Self {
         self.sql.push_str(&build_returning_clause(columns));
         self
@@ -160,8 +172,8 @@ impl<T: Debug + Clone> InsertBuilder<T> {
 }
 
 impl<T: Debug + Clone> BuilderTrait<T> for InsertBuilder<T> {
-    /// Build method implementation for InsertBuilder
-    fn build(&self) -> (String, Vec<T>) {
-        (self.sql.clone(), self.values.clone())
+    /// Build method implementation for InsertBuilder, consuming self
+    fn build(self) -> (String, Vec<T>) {
+        (self.sql, self.values)
     }
 }

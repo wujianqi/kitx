@@ -19,7 +19,7 @@ A minimalistic SQL builder library based on [sqlx](https://crates.io/crates/sqlx
   with global configuration
 
 - **Flexible Query Building**  
-  Supports JOINs, CASE WHEN, and aggregations. Provides native support for ON CONFLICT/DUPLICATE KEY (upsert) and RETURNING, enabling conflict resolution and data retrieval.
+  Supports JOINs, CASE WHEN, WITH CTE and aggregations. Provides native support for ON CONFLICT/DUPLICATE KEY (upsert) and RETURNING, enabling conflict resolution and data retrieval.
 
 ### Key Advantages
 - 🚀 **No ORM Overhead** - Direct SQL interaction with builder pattern  
@@ -80,9 +80,9 @@ op.insert_one(article).await?;
 ```rust
 let results = op.get_list_paginated(10, 2, empty_query()).await?;
 
-let results = op.get_list_by_cursor(10, Some(|&mut builder|{
+let results = op.get_list_by_cursor(10, |&mut builder|{
     builder.where_mut(col("created_at").gt(DateTime::now()));
-})).await?;
+}).await?;
 
 ```
 

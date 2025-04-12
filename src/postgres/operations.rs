@@ -51,15 +51,15 @@ where
         let table_query = TableQueryBuilder::new(
             table_name,
             primary_key,
-            get_global_soft_delete_field().cloned(),
+            get_global_soft_delete_field(),
             get_global_filter(),
         );        
         Operations { table_query,  query: PostgresQuery, _phantom: PhantomData}
     }
 
-    async fn get_list<F>(&self, query_condition: Option<F>) -> Result<Vec<T>, Error>
+    async fn get_list<F>(&self, query_condition: F) -> Result<Vec<T>, Error>
     where
-        F: Fn(&mut Select<'a>) + Send + 'a,
+        F: Fn(&mut Select<'a>) + Send + Sync + 'a,
     {
         let builder = self.table_query.get_list(query_condition);
         self.query.fetch_all::<T, Select>(builder).await
@@ -70,9 +70,9 @@ where
         self.query.fetch_optional::<T, Select>(builder).await
     }
 
-    async fn get_one<F>(&self, query_condition: Option<F>) -> Result<Option<T>, Error>
+    async fn get_one<F>(&self, query_condition: F) -> Result<Option<T>, Error>
     where
-        F: Fn(&mut Select<'a>) + Send + 'a,
+        F: Fn(&mut Select<'a>) + Send + Sync + 'a,
     {
         let builder = self.table_query.get_one(query_condition);
         self.query.fetch_optional::<T, Select>(builder).await
@@ -82,17 +82,17 @@ where
         &self,
         page_number: u64,
         page_size: u64,
-        query_condition: Option<F>,
+        query_condition: F,
     ) -> Result<PaginatedResult<T>, Error>
     where
-        F: Fn(&mut Select<'a>) + Send +'a,
+        F: Fn(&mut Select<'a>) + Send + Sync +'a,
     {
-        let mut qc = QueryCondition::new(query_condition);
+        let qc = QueryCondition::new(query_condition);
         
-        let builder = self.table_query.get_list_paginated(page_number, page_size, qc.take())?;
+        let builder = self.table_query.get_list_paginated(page_number, page_size, qc.get())?;
         
         let (total, data) = tokio::join!(
-            self.count(qc.take()),
+            self.count(qc.get()),
             self.query.fetch_all::<T, Select>(builder)
         );
 
@@ -107,10 +107,10 @@ where
     async fn get_list_by_cursor<F>(
         &self,
         limit: u64,
-        query_condition: Option<F>,
+        query_condition: F,
     ) -> Result<CursorPaginatedResult<T>, Error>
     where
-        F: Fn(&mut Select<'a>) + Send  + 'a,
+        F: Fn(&mut Select<'a>) + Send + Sync  + 'a,
         T: Clone,
     {
         let builder = self.table_query.get_list_by_cursor(limit, query_condition)?;
@@ -138,9 +138,9 @@ where
         self.query.execute(builder).await
     }
 
-    async fn update_one<F>(&self, entity: T, query_condition: Option<F>) -> Result<PgQueryResult, Error>
+    async fn update_one<F>(&self, entity: T, query_condition: F) -> Result<PgQueryResult, Error>
     where
-        F: Fn(&mut Self::UpdateFilter<'a>) + Send + 'a,
+        F: Fn(&mut Self::UpdateFilter<'a>) + Send + Sync + 'a,
     {
         let builder = self.table_query.update_one(entity, query_condition)?;
         self.query.execute(builder).await
@@ -166,9 +166,9 @@ where
         self.query.execute(builder).await
     }
 
-    async fn delete_by_cond<F>(&self, query_condition: Option<F>) -> Result<PgQueryResult, Error>
+    async fn delete_by_cond<F>(&self, query_condition: F) -> Result<PgQueryResult, Error>
     where
-        F: Fn(&mut Self::DeleteFilter<'a>) + Send + 'a,
+        F: Fn(&mut Self::DeleteFilter<'a>) + Send + Sync + 'a,
     {
         let builder = self.table_query.delete_by_cond(query_condition);
         self.query.execute(builder).await
@@ -184,18 +184,18 @@ where
         self.query.execute(builder).await
     }
 
-    async fn exist<F>(&self, query_condition: Option<F>) -> Result<bool, Error>
+    async fn exist<F>(&self, query_condition: F) -> Result<bool, Error>
     where
-        F: Fn(&mut Select<'a>) + Send + 'a,
+        F: Fn(&mut Select<'a>) + Send + Sync + 'a,
     {
         let builder = self.table_query.exist(query_condition);
         let result = self.query.fetch_optional::<(i32,), Select>(builder).await?;
         Ok(result.is_some())
     }
 
-    async fn count<F>(&self, query_condition: Option<F>) -> Result<i64, Error>
+    async fn count<F>(&self, query_condition: F) -> Result<i64, Error>
     where
-        F: Fn(&mut Select<'a>) + Send + 'a,
+        F: Fn(&mut Select<'a>) + Send + Sync + 'a,
     {
         let builder = self.table_query.count(query_condition);
         let result = self.query.fetch_one::<(i64,), Select>(builder).await?;

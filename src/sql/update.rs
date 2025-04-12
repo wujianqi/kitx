@@ -3,6 +3,7 @@ use std::fmt::Debug;
 use crate::common::builder::{BuilderTrait, FilterTrait};
 
 use super::case_when::CW;
+use super::cte::WithCTE;
 use super::filter::Expr;
 use super::helper::{build_returning_clause, build_where_clause, combine_where_clause};
 use super::join::Join;
@@ -167,6 +168,18 @@ impl<T: Debug + Clone> UpdateBuilder<T> {
         self
     }
 
+    /// Adds a WITH clause to the SELECT statement.
+    /// Supported in Mysql 8.0+、Sqlite 3.8.3+ only.
+    pub fn with(mut self, with_cte: WithCTE<T>) -> Self {
+        let (with_sql, with_values) = with_cte.build();
+        let mut new_sql = String::with_capacity(with_sql.len() + self.sql.len());
+        new_sql.push_str(&with_sql);
+        new_sql.push_str(&self.sql);
+        self.sql = new_sql;
+        self.values.extend(with_values);
+        self
+    }
+
 }
 
 impl<T: Debug + Clone> FilterTrait<T> for UpdateBuilder<T> {
@@ -212,13 +225,13 @@ impl<T: Debug + Clone> FilterTrait<T> for UpdateBuilder<T> {
 
 impl<T: Debug + Clone> BuilderTrait<T> for UpdateBuilder<T> {    
     /// Builds the UPDATE statement and returns the SQL query string and parameter values.
-    fn build(&self) -> (String, Vec<T>) {
-        let mut sql = self.sql.clone();
-        let mut values = self.values.clone();
+    fn build(self) -> (String, Vec<T>) {
+        let mut sql = self.sql;
+        let mut values = self.values;
+
         if !self.where_clauses.is_empty() {
-            let where_clauses = &self.where_clauses;
-            let (where_sql, where_values) = build_where_clause(where_clauses.to_vec());
-            if !sql.is_empty() && !sql.ends_with(' ') {
+            let (where_sql, where_values) = build_where_clause(self.where_clauses);
+            if !sql.ends_with(' ') {
                 sql.push(' ');
             }
             sql.push_str(&where_sql);

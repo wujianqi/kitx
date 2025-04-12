@@ -21,3 +21,5 @@ pub type Delete<'a> = DeleteBuilder<DataKind<'a>>;
 pub fn col<'a>(name: &'a str) -> ColumnExpr<DataKind<'a>> {
     Expr::col(name)
 }
+
+

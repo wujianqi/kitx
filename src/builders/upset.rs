@@ -101,7 +101,7 @@ where
             .where_(Expr::col(self.primary_key.0).eq(primary_key_value)))
     }
 
-    pub fn update_one<F>(&self, entity: T, query_condition: Option<F>) -> Result<UpdateBuilder<D>, OperationError>
+    pub fn update_one<F>(&self, entity: T, query_condition: F) -> Result<UpdateBuilder<D>, OperationError>
     where
         F: Fn(&mut UpdateBuilder<D>) + Send + 'a,
     {
@@ -125,9 +125,7 @@ where
             .set_cols(&cols_names, cols_values)
             .where_(Expr::col(self.primary_key.0).eq(primary_key_value));
 
-        if let Some(condition) = query_condition {
-            condition(&mut builder);
-        }
+        query_condition(&mut builder);
 
         Ok(builder)
     }
