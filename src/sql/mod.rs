@@ -1,5 +1,6 @@
 pub(super) mod helper;
 
+pub mod base;
 pub mod agg;
 pub mod join;
 pub mod filter;

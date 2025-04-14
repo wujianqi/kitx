@@ -1,6 +1,7 @@
 use std::borrow::Cow;
 
 use kitx::common::builder::{BuilderTrait, FilterTrait};
+use kitx::sql::base::SqlBuilder;
 use kitx::sql::cte::{WithCTE, CTE};
 use kitx::sql::delete::DeleteBuilder;
 use kitx::sql::insert::InsertBuilder;
@@ -13,6 +14,15 @@ use kitx::sql::select::SelectBuilder;
 use kitx::sql::join::Join;
 use kitx::sql::agg::Agg;
 use kitx::sql::case_when::CW;
+
+#[test]
+fn builder_test() {
+    let sql = SqlBuilder::<Value>::raw(
+        r#"SELECT id, name FROM users WHERE age = ? AND id = ?"#, 
+        Some(vec![23, 22]))
+    .build().0;
+    assert_eq!(sql, "SELECT id, name FROM users WHERE age = ? AND id = ?")
+}
 
 #[test]
 fn select_test() {

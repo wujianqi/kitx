@@ -1,8 +1,10 @@
 use std::any::Any;
 use std::borrow::Cow;
 use std::error::Error;
-use chrono::{DateTime, NaiveDateTime, Utc};
+use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, TimeZone, Utc};
+use serde_json::Value;
 use sqlx::encode::IsNull;
+use sqlx::types::Uuid;
 use sqlx::{Database, Encode, Sqlite, Type};
 use sqlx::sqlite::SqliteArgumentValue;
 
@@ -12,48 +14,66 @@ use crate::utils::value::{unwrap_option, ValueConvert};
 #[derive(Default, Debug, Clone)]
 pub enum DataKind<'a> {
     /// Text type (string).
-    Text(Cow<'a, str>),
-    /// Integer type (i64).
-    Integer(i64),
-    /// Real number type (f64).
-    Real(f64),
-    /// Date and time type (`DateTime<Utc>`).
-    DateTime(DateTime<Utc>),
+    Text(Cow<'a, str>), // SQLite: TEXT
+
+    /// Integer type.
+    Integer(i64), // SQLite: INTEGER (includes i8, i16, i32, u8, u16, u32)
+
+    /// Real number type.
+    Real(f64), // SQLite: REAL
+
+    /// Date and time types
+    DateTime(NaiveDateTime), // SQLite: DATETIME (TEXT, INTEGER, REAL)
+    DateTimeUtc(DateTime<Utc>), // SQLite: DATETIME (TEXT, INTEGER, REAL)
+    Date(NaiveDate), // SQLite: DATE (TEXT only)
+    Time(NaiveTime), // SQLite: TIME (TEXT only)
+
     /// BLOB type (byte array).
-    Blob(Cow<'a, [u8]>),
+    Blob(Cow<'a, [u8]>), // SQLite: BLOB
+
+    /// Boolean type.
+    Bool(bool), // SQLite: BOOLEAN (internally stored as INTEGER)
+
+    /// JSON type (unstructured JSON data).
+    Json(Value), // SQLite: TEXT (JSON stored as text)
+
+    /// UUID type (stored as BLOB or TEXT).
+    Uuid(Uuid), // SQLite: BLOB or TEXT
+
     /// Null type.
     #[default]
-    Null,
+    Null, // SQLite: NULL
 }
 
 impl<'a> Encode<'a, Sqlite> for DataKind<'a> {
     fn encode_by_ref(&self, buf: &mut Vec<SqliteArgumentValue<'_>>) -> Result<IsNull, Box<dyn Error + Send + Sync + 'static>> {
         match self {
-            DataKind::Text(text) => {
-                buf.push(SqliteArgumentValue::Text(text.to_string().into()));
-                Ok(IsNull::No)
+            // Basic types
+            DataKind::Null => Ok(IsNull::Yes),
+            DataKind::Text(s) => <String as Encode<'_, Sqlite>>::encode(s.to_string(), buf),
+            DataKind::Integer(i) => <i64 as Encode<'_, Sqlite>>::encode(*i, buf),
+            DataKind::Real(r) => <f64 as Encode<'_, Sqlite>>::encode(*r, buf),
+
+            // Date and time types
+            DataKind::DateTime(dt) => {
+                let utc_datetime = Utc.from_utc_datetime(dt);
+                <String as Encode<'_, Sqlite>>::encode(utc_datetime.to_rfc3339(), buf)
             },
-            DataKind::Integer(int) => {
-                buf.push(SqliteArgumentValue::Int64(*int));
-                Ok(IsNull::No)
-            },
-            DataKind::Real(real) => {
-                buf.push(SqliteArgumentValue::Double(*real));
-                Ok(IsNull::No)
-            },
-            DataKind::DateTime(datetime) => {
-                let rfc3339 = datetime.to_rfc3339();
-                buf.push(SqliteArgumentValue::Text(rfc3339.into()));
-                Ok(IsNull::No)
-            },
-            DataKind::Blob(blob) => {
-                buf.push(SqliteArgumentValue::Blob(blob.to_vec().into()));
-                Ok(IsNull::No)
-            },
-            DataKind::Null => {
-                buf.push(SqliteArgumentValue::Null);
-                Ok(IsNull::Yes)
-            }
+            DataKind::DateTimeUtc(dt_utc) => <String as Encode<'_, Sqlite>>::encode(dt_utc.to_rfc3339(), buf),
+            DataKind::Date(date) => <String as Encode<'_, Sqlite>>::encode(date.format("%Y-%m-%d").to_string(), buf),
+            DataKind::Time(time) => <String as Encode<'_, Sqlite>>::encode(time.format("%H:%M:%S%.f").to_string(), buf),
+
+            // Binary types
+            DataKind::Blob(b) => <Vec<u8> as Encode<'_, Sqlite>>::encode(b.to_vec(), buf),
+
+            // Boolean type
+            DataKind::Bool(b) => <i64 as Encode<'_, Sqlite>>::encode(*b as i64, buf),
+
+            // JSON type
+            DataKind::Json(json) => <String as Encode<'_, Sqlite>>::encode(serde_json::to_string(json)?, buf),
+
+            // UUID type
+            DataKind::Uuid(uuid) => <String as Encode<'_, Sqlite>>::encode(uuid.to_string(), buf),
         }
     }
 }
@@ -68,9 +88,8 @@ impl<'a> Type<Sqlite> for DataKind<'a> {
     }
 }
 
-impl<'a> ValueConvert<DataKind<'a>> for DataKind<'a> {    
-    /// Convert any type of value to the `DataKind` enum type.
-    fn convert(value: &dyn Any) -> DataKind<'a> {
+impl<'a> ValueConvert<DataKind<'a>> for DataKind<'a> {
+    fn convert(value: &dyn Any) -> Self {
         macro_rules! try_convert {
             ($($type:ty => $variant:expr),*) => {
                 $(if let Some(v) = unwrap_option::<$type>(value) {
@@ -79,19 +98,25 @@ impl<'a> ValueConvert<DataKind<'a>> for DataKind<'a> {
                 return DataKind::Null;
             };
         }
-    
+
         try_convert!(
             String => |v: &String| DataKind::Text(Cow::Owned(v.into())),
             &str => |v: &'a str| DataKind::Text(Cow::Borrowed(v)),
-            i32 => |v: &i32| DataKind::Integer(*v as i64),
-            i64 => |v: &i64| DataKind::Integer(*v),
+            i32 => |v: &i32| DataKind::Integer(*v as i64),            
+            u32 => |v: &u32| DataKind::Integer(*v as i64),
+            u64 => |v: &u64| DataKind::Integer(*v as i64),
+            i64 => |v: &i64| DataKind::Integer(*v),            
             f32 => |v: &f32| DataKind::Real(*v as f64),
             f64 => |v: &f64| DataKind::Real(*v),
-            bool => |v: &bool| DataKind::Integer(*v as i64),
-            NaiveDateTime => |v: &NaiveDateTime| DataKind::DateTime(DateTime::from_naive_utc_and_offset(*v, Utc)),
-            DateTime<Utc> => |v: &DateTime<Utc>| DataKind::DateTime(*v),
+            bool => |v: &bool| DataKind::Bool(*v),
+            NaiveDateTime => |v: &NaiveDateTime| DataKind::DateTime(*v),
+            DateTime<Utc> => |v: &DateTime<Utc>| DataKind::DateTimeUtc(*v),
+            NaiveDate => |v: &NaiveDate| DataKind::Date(*v),
+            NaiveTime => |v: &NaiveTime| DataKind::Time(*v),
             Vec<u8> => |v: &Vec<u8>| DataKind::Blob(Cow::Owned(v.clone())),
-            &[u8] => |v: &'a [u8]| DataKind::Blob(Cow::Borrowed(v))       
+            &[u8] => |v: &&'a [u8]| DataKind::Blob(Cow::Borrowed(*v)),
+            Value => |v: &Value| DataKind::Json(v.clone()),
+            Uuid => |v: &Uuid| DataKind::Uuid(*v)
         );
     }
 }
@@ -107,15 +132,31 @@ macro_rules! impl_from {
     };
 }
 
+// Basic types
 impl_from!(String, |value: String| DataKind::Text(Cow::Owned(value)));
 impl_from!(&'a str, |value: &'a str| DataKind::Text(Cow::Borrowed(value)));
 impl_from!(Vec<u8>, |value: Vec<u8>| DataKind::Blob(Cow::Owned(value)));
 impl_from!(&'a [u8], |value: &'a [u8]| DataKind::Blob(Cow::Borrowed(value)));
+
+// Numeric types
 impl_from!(i32, |value: i32| DataKind::Integer(value as i64));
-impl_from!(i64, DataKind::Integer);
+impl_from!(u32, |value: u32| DataKind::Integer(value as i64));
 impl_from!(u64, |value: u64| DataKind::Integer(value as i64));
+impl_from!(i64, DataKind::Integer);
 impl_from!(f32, |value: f32| DataKind::Real(value as f64));
 impl_from!(f64, DataKind::Real);
-impl_from!(bool, |value: bool| DataKind::Integer(value as i64));
-impl_from!(DateTime<Utc>, DataKind::DateTime);
-impl_from!(NaiveDateTime, |value: NaiveDateTime| DataKind::DateTime(DateTime::from_naive_utc_and_offset(value, Utc)));
+
+// Boolean type
+impl_from!(bool, DataKind::Bool);
+
+// Date and time types
+impl_from!(NaiveDateTime, DataKind::DateTime);
+impl_from!(DateTime<Utc>, DataKind::DateTimeUtc);
+impl_from!(NaiveDate, DataKind::Date);
+impl_from!(NaiveTime, DataKind::Time);
+
+// JSON type
+impl_from!(Value, DataKind::Json);
+
+// UUID type
+impl_from!(Uuid, DataKind::Uuid);

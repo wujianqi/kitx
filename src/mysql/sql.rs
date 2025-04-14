@@ -1,13 +1,9 @@
 use crate::sql::{
-    delete::DeleteBuilder, 
-    filter::{ColumnExpr, Expr}, 
-    insert::InsertBuilder, 
-    select::SelectBuilder, 
-    update::UpdateBuilder
+    base::SqlBuilder, delete::DeleteBuilder, filter::{ColumnExpr, Expr}, insert::InsertBuilder, select::SelectBuilder, update::UpdateBuilder
 };
-
 use super::kind::DataKind;
 
+pub type Sql<'a> = SqlBuilder<DataKind<'a>>;
 pub type Select<'a> = SelectBuilder<DataKind<'a>>;
 pub type Insert<'a> = InsertBuilder<DataKind<'a>>;
 pub type Update<'a> = UpdateBuilder<DataKind<'a>>;

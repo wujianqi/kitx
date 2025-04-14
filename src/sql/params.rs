@@ -15,60 +15,26 @@ pub enum Value<'a> {
     Null,
 }
 
-/// Provides Into type conversion methods
-impl<'a> From<i32> for Value<'a> {
-    fn from(value: i32) -> Self {
-        Value::Int(value)
-    }
+macro_rules! impl_from {
+    ($type:ty, $variant:expr) => {
+        impl<'a> From<$type> for Value<'a> {
+            fn from(item: $type) -> Self {
+                $variant(item)
+            }
+        }
+    };
 }
 
-impl<'a> From<f32> for Value<'a> {
-    fn from(value: f32) -> Self {
-        Value::Float(value)
-    }
-}
+impl_from!(String, |value: String| Value::Text(Cow::Owned(value)));
+impl_from!(&'a str, |value: &'a str| Value::Text(Cow::Borrowed(value)));
+impl_from!(Vec<u8>, |value: Vec<u8>| Value::Blob(Cow::Owned(value)));
+impl_from!(&'a [u8], |value: &'a [u8]| Value::Blob(Cow::Borrowed(value)));
+impl_from!(u32, |value: u32| Value::Int(value as i32));
+impl_from!(i32, Value::Int);
+impl_from!(f32, Value::Float);
+impl_from!(bool, Value::Bool);
+impl_from!(SystemTime, Value::Timestamp);
 
-impl<'a> From<String> for Value<'a> {
-    fn from(value: String) -> Self {
-        Value::Text(Cow::Owned(value))
-    }
-}
-
-impl<'a> From<&'a str> for Value<'a> {
-    fn from(value: &'a str) -> Self {
-        Value::Text(Cow::Borrowed(value))
-    }
-}
-
-impl<'a> From<bool> for Value<'a> {
-    fn from(value: bool) -> Self {
-        Value::Bool(value)
-    }
-}
-
-impl<'a> From<SystemTime> for Value<'a> {
-    fn from(value: SystemTime) -> Self {
-        Value::Timestamp(value)
-    }
-}
-
-/* impl<'a> From<i64> for Value<'a> {
-    fn from(value: i64) -> Self {
-        Value::Timestamp(UNIX_EPOCH + Duration::from_secs(value as u64))
-    }
-} */
-
-impl<'a> From<Vec<u8>> for Value<'a> {
-    fn from(value: Vec<u8>) -> Self {
-        Value::Blob(Cow::Owned(value))
-    }
-}
-
-impl<'a> From<&'a [u8]> for Value<'a> {
-    fn from(value: &'a [u8]) -> Self {
-        Value::Blob(Cow::Borrowed(value))
-    }
-}
 
 impl<'a, T> From<Option<T>> for Value<'a>
 where

@@ -1,7 +1,10 @@
 use std::any::Any;
 use std::borrow::Cow;
 use std::error::Error;
+use std::net::IpAddr;
 use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
+use ipnetwork::IpNetwork;
+use mac_address::MacAddress;
 use sqlx::encode::IsNull;
 use sqlx::postgres::{PgArgumentBuffer, PgHasArrayType, PgTypeInfo, Postgres};
 use sqlx::types::uuid;
@@ -21,39 +24,38 @@ pub enum DataKind<'a> {
     Bool(bool),
 
     // Numeric types
-    Int2(i16),
-    Int4(i32),
-    Int8(i64),
-    Float4(f32),
-    Float8(f64),
-    Numeric(Decimal),
+    Int2(i16),              // SMALLINT, SMALLSERIAL, INT2
+    Int4(i32),              // INT, SERIAL, INT4
+    Int8(i64),              // BIGINT, BIGSERIAL, INT8
+    Float4(f32),            // REAL, FLOAT4
+    Float8(f64),            // DOUBLE PRECISION, FLOAT8
+    Numeric(Decimal),    // NUMERIC
 
     // String types
-    Text(Cow<'a, str>),
+    Text(Cow<'a, str>),     // VARCHAR, CHAR(N), TEXT, NAME, CITEXT
 
     // Binary types
-    Bytea(Cow<'a, [u8]>),
+    Bytea(Cow<'a, [u8]>),   // BYTEA
 
     // Date and time types
-    Date(NaiveDate),
-    Time(NaiveTime),
-    Timestamp(NaiveDateTime),
-    Timestamptz(DateTime<Utc>),
+    Date(NaiveDate),        // DATE
+    Time(NaiveTime),        // TIME
+    Timestamp(NaiveDateTime), // TIMESTAMP
+    Timestamptz(DateTime<Utc>), // TIMESTAMPTZ
 
     // Network types
-    Inet(String),
-    Cidr(String),
-    MacAddr([u8; 6]),
+    Inet(IpAddr),        // INET
+    Cidr(IpNetwork),        // CIDR
+    MacAddr(MacAddress),    // MACADDR
 
     // UUID type
-    Uuid(Uuid),
+    Uuid(Uuid),             // UUID
 
     // JSON types
-    Json(Value),
-    Jsonb(Value),
+    Json(Value),            // JSON, JSONB
 
     // Array type
-    Array(Vec<DataKind<'a>>),
+    Array(Vec<DataKind<'a>>), // Arrays of any supported type
 }
 
 impl<'a> Encode<'a, Postgres> for DataKind<'a> {
@@ -66,19 +68,18 @@ impl<'a> Encode<'a, Postgres> for DataKind<'a> {
             DataKind::Int8(i) => <i64 as Encode<'_, Postgres>>::encode(*i, buf),
             DataKind::Float4(f) => <f32 as Encode<'_, Postgres>>::encode(*f, buf),
             DataKind::Float8(d) => <f64 as Encode<'_, Postgres>>::encode(*d, buf),
-            DataKind::Numeric(n) => <Decimal as Encode<'_, Postgres>>::encode(n.clone(), buf),
+            DataKind::Numeric(n) => <Decimal as Encode<'_, Postgres>>::encode(*n, buf),
             DataKind::Text(s) => <Cow<'_, str> as Encode<'_, Postgres>>::encode(Cow::Borrowed(s), buf),
-            DataKind::Bytea(b) => <Vec<u8> as Encode<'_, Postgres>>::encode(b.to_vec(), buf),
+            DataKind::Bytea(b) => <&[u8] as Encode<'_, Postgres>>::encode(b.as_ref(), buf),
             DataKind::Date(d) => <NaiveDate as Encode<'_, Postgres>>::encode(*d, buf),
             DataKind::Time(t) => <NaiveTime as Encode<'_, Postgres>>::encode(*t, buf),
             DataKind::Timestamp(ts) => <NaiveDateTime as Encode<'_, Postgres>>::encode(*ts, buf),
             DataKind::Timestamptz(tstz) => <DateTime<Utc> as Encode<'_, Postgres>>::encode(*tstz, buf),
-            DataKind::Inet(ip) => <String as Encode<'_, Postgres>>::encode(ip.clone(), buf),
-            DataKind::Cidr(cidr) => <String as Encode<'_, Postgres>>::encode(cidr.clone(), buf),
-            DataKind::MacAddr(mac) => <[u8; 6] as Encode<'_, Postgres>>::encode(*mac, buf),
+            DataKind::Inet(ip) => <String as Encode<'_, Postgres>>::encode(ip.to_string(), buf),
+            DataKind::Cidr(cidr) => <String as Encode<'_, Postgres>>::encode(cidr.to_string(), buf),
+            DataKind::MacAddr(mac) => <[u8; 6] as Encode<'_, Postgres>>::encode(mac.bytes(), buf),
             DataKind::Uuid(uuid) => <Uuid as Encode<'_, Postgres>>::encode(*uuid, buf),
-            DataKind::Json(j) => <Value as Encode<'_, Postgres>>::encode(j.clone(), buf),
-            DataKind::Jsonb(j) => <Value as Encode<'_, Postgres>>::encode(j.clone(), buf),
+            DataKind::Json(j) => <&Value as Encode<'_, Postgres>>::encode(j, buf),
             DataKind::Array(arr) => {
                 for item in arr {
                     let _ = item.encode_by_ref(buf)?;
@@ -131,7 +132,6 @@ impl<'a> DataKind<'a> {
             DataKind::MacAddr(_) => <[u8; 6] as Type<Postgres>>::type_info(),
             DataKind::Uuid(_) => <Uuid as Type<Postgres>>::type_info(),
             DataKind::Json(_) => <Value as Type<Postgres>>::type_info(),
-            DataKind::Jsonb(_) => <Value as Type<Postgres>>::type_info(),
             DataKind::Array(_) => <Vec<DataKind> as Type<Postgres>>::type_info(),
             DataKind::Null => <str as Type<Postgres>>::type_info(),
         }
@@ -146,7 +146,7 @@ impl PgHasArrayType for DataKind<'_> {
 
 impl<'a> ValueConvert<DataKind<'a>> for DataKind<'a> {    
     /// Convert any type of value to the `DataKind` enum type.
-    fn convert(value: &dyn Any) -> DataKind<'a> {
+    fn convert(value: &dyn Any) -> Self {
         macro_rules! try_convert {
             ($($type:ty => $variant:expr),*) => {
                 $(if let Some(v) = unwrap_option::<$type>(value) {
@@ -193,7 +193,9 @@ impl_from!(&'a str, |value: &'a str| DataKind::Text(Cow::Borrowed(value)));
 impl_from!(Vec<u8>, |value: Vec<u8>| DataKind::Bytea(Cow::Owned(value)));
 impl_from!(&'a [u8], |value: &'a [u8]| DataKind::Bytea(Cow::Borrowed(value)));
 impl_from!(i16, DataKind::Int2);
+impl_from!(u16, |value: u16| DataKind::Int2(value as i16));
 impl_from!(i32, DataKind::Int4);
+impl_from!(u32, |value: u32| DataKind::Int4(value as i32));
 impl_from!(i64, DataKind::Int8);
 impl_from!(u64, |value: u64| DataKind::Int8(value as i64));
 impl_from!(f32, DataKind::Float4);

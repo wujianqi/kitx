@@ -19,7 +19,12 @@ A minimalistic SQL builder library based on [sqlx](https://crates.io/crates/sqlx
   with global configuration
 
 - **Flexible Query Building**  
-  Supports JOINs, CASE WHEN, WITH CTE and aggregations. Provides native support for ON CONFLICT/DUPLICATE KEY (upsert) and RETURNING, enabling conflict resolution and data retrieval.
+  Supports JOINs, CASE WHEN, WITH CTE, and aggregations. Supports ON CONFLICT/DUPLICATE KEY (upsert) and RETURNING for conflict resolution and data retrieval.
+
+- **Code Characteristics** 
+  - **No Macros**: Public interfaces avoid macros, ensuring transparency and maintainability.
+  - **No `.unwrap()` or `.expect()`**: Prevents runtime panics by promoting robust error handling.
+
 
 ### Key Advantages
 - 🚀 **No ORM Overhead** - Direct SQL interaction with builder pattern  
@@ -32,16 +37,16 @@ A minimalistic SQL builder library based on [sqlx](https://crates.io/crates/sqlx
 ### 1. Add Dependency
 ```toml
 # Default SQL Builder, completely decoupled from any external libraries.
-kitx = "0.0.10"
+kitx = "0.0.11"
 
 # For SQLite only
-kitx = { version = "0.0.10", features = ["sqlite"] }
+kitx = { version = "0.0.11", features = ["sqlite"] }
 
 # For MySQL/MariaDB only
-kitx = { version = "0.0.10", features = ["mysql"] }
+kitx = { version = "0.0.11", features = ["mysql"] }
 
 # For PostgreSQL only
-kitx = { version = "0.0.10", features = ["postgres"] }
+kitx = { version = "0.0.11", features = ["postgres"] }
 ```
 
 ### 2. Basic Usage
@@ -62,7 +67,7 @@ let query2 = Insert::into("users")
     .columns(&["id", "name"])
     .values(&[22, "John Doe"])
     .build().0;
-
+  
 // CRUD Operations
 // KitX does not support composite primary keys. For such cases, please use constraints instead.
 let op = Operations::new("articles", ("article_id", true));
@@ -95,6 +100,9 @@ set_global_soft_delete_field("deleted_at", vec!["audit_logs"]);
 // Multi-tenant filtering
 set_global_filter(col("tenant_id").eq(123)), vec!["system_metrics"]);
 ```
+
+### 5. More Usage Examples 
+For more detailed usage examples and advanced scenarios, please refer to the test cases provided in the repository.
 
 ## License
 MIT License

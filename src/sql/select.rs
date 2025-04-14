@@ -188,25 +188,6 @@ impl<T: Debug + Clone> SelectBuilder<T> {
         self
     }
 
-    
-    /// Creates a new SelectBuilder instance with the given SQL query and parameter values.
-    pub fn raw(sql: impl Into<String>, params: Option<Vec<T>>) -> Self {
-        let sql = sql.into();
-        let mut values = vec![];
-        if let Some(vals) = params {
-            values.extend(vals);
-        }
-        Self {
-            sql,
-            values,
-            where_clauses: vec![],
-            order_by_clauses: vec![],
-            limit_offset: None,
-            group_having: None,
-            joins: vec![],
-        }        
-    }
-
     /// Appends a new SQL query and parameter value to the existing query.
     pub fn append(mut self, sql: impl Into<String>, value: Option<T>)-> Self {
         let sql = sql.into();

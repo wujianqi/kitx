@@ -9,14 +9,13 @@ pub trait ValueConvert<T> {
 /// and return the inner value if it exists.
 /// This function is useful when dealing with nested Option types.
 /// It can handle `Option<Option<T>>`, `Option<T>`, and T types.
-pub fn unwrap_option<'a, T: 'static>(value: &'a dyn Any) -> Option<&'a T> {
+pub fn unwrap_option<T: 'static>(value: &dyn Any) -> Option<&T> {
     if let Some(opt_opt) = value.downcast_ref::<Option<Option<T>>>() {
         return opt_opt.as_ref().and_then(|opt| opt.as_ref());
     }
     if let Some(opt) = value.downcast_ref::<Option<T>>() {
         return opt.as_ref();
     }
-
     value.downcast_ref::<T>()
 }
 

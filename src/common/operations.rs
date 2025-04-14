@@ -181,7 +181,7 @@ where
     /// 
     /// # Returns
     /// Returns the total number of records.
-    fn count<F>(&self, query_condition: F) -> impl Future<Output = Result<i64, Error>> + Send
+    fn count<F>(&self, query_condition: F) -> impl Future<Output = Result<u64, Error>> + Send
     where
         F: Fn(&mut Self::QueryFilter<'a>) + Send + Sync + 'a;
 
@@ -205,7 +205,7 @@ pub struct PaginatedResult<T> {
     /// Data records queried.
     pub data: Vec<T>,
     /// Total number of records.
-    pub total: i64,
+    pub total: u64,
     pub page_number: u64,
     pub page_size: u64,
 }

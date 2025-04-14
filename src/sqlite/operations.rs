@@ -193,12 +193,12 @@ where
         Ok(result.is_some())
     }
 
-    async fn count<F>(&self, query_condition: F) -> Result<i64, Error>
+    async fn count<F>(&self, query_condition: F) -> Result<u64, Error>
     where
         F: Fn(&mut Select<'a>) + Send + Sync + 'a,
     {
         let builder = self.table_query.count(query_condition);
-        let result = self.query.fetch_one::<(i64,), Select>(builder).await?;
+        let result = self.query.fetch_one::<(u64,), Select>(builder).await?;
         Ok(result.0)
     }
 }
