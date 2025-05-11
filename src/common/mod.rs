@@ -1,4 +1,5 @@
 pub mod builder;
+pub mod types;
 pub mod error;
 
 #[cfg(any(feature = "mysql", feature = "sqlite", feature = "postgres"))]

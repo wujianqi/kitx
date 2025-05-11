@@ -2,15 +2,15 @@ use super::filter::Expr;
 use std::fmt::Debug;
 
 #[derive(Debug, Clone)]
-pub struct Join<T: Debug + Clone> {
+pub struct JoinType<T: Debug + Clone> {
     join_type: (String, String), // (join_type, table,)
     on_filter: Option<Expr<T>>,
 }
 
-impl<T: Debug + Clone> Join<T> {
+impl<T: Debug + Clone> JoinType<T> {
     /// Creates a new JOIN instance (private method, used internally)
     fn new(join_type: impl Into<String>, table: impl Into<String>) -> Self {
-        Join {
+        JoinType {
             join_type: (join_type.into(), table.into()),
             on_filter: None,
         }

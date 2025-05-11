@@ -27,17 +27,20 @@ impl<T: Debug + Clone> CTE<T> {
 
     /// Builds the SQL representation of this CTE.
     pub fn build(self) -> (String, Vec<T>) {
-        let mut sql = String::with_capacity(64);
+        let mut sql = String::with_capacity(self.name.len() + 32);
         sql.push_str(&self.name);
+        
         if let Some(cols) = self.columns {
             sql.push('(');
             sql.push_str(&cols.join(", "));
             sql.push(')');
         }
+        
         sql.push_str(" AS (");
         let (query_sql, query_values) = self.query.build();
         sql.push_str(&query_sql);
         sql.push_str(") ");
+        
         (sql, query_values)
     }
 }

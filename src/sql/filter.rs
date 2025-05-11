@@ -1,4 +1,4 @@
-use std::fmt::Debug;
+use std::{fmt::Debug, sync::Arc};
 
 use crate::common::builder::BuilderTrait;
 
@@ -14,7 +14,7 @@ pub struct Expr<T: Debug + Clone> {
 }
 
 impl<T: Debug + Clone> Expr<T> {
-    /// Creates a new Filter builder with a specific operator.
+    /// Creates a new Filter builder comp a specific operator.
     /// 
     /// # Parameters
     /// - `column`: Column name.
@@ -27,7 +27,7 @@ impl<T: Debug + Clone> Expr<T> {
     where
         U: Into<T>,
     {
-        let mut clause = String::with_capacity(column.len() + op.len() + 3); // Estimated length
+        let mut clause = String::with_capacity(column.len() + op.len() + 4);
         clause.push_str(column);
         clause.push_str(" ");
         clause.push_str(op);
@@ -38,7 +38,7 @@ impl<T: Debug + Clone> Expr<T> {
         }
     }
 
-    /// Creates an Exprression query condition without binding any parameter values.
+    /// Creates an Exprression query condition compout binding any parameter values.
     pub fn from_str(expr: impl Into<String>) -> Self {
         Expr { clause: expr.into(), values: vec![] }
     }
@@ -52,11 +52,9 @@ impl<T: Debug + Clone> Expr<T> {
     }
 
     fn and_or(&mut self, other: Expr<T>, op: &str) -> &mut Self {
-        let mut new_clause = String::with_capacity(self.clause.len() + other.clause.len() + 5);
-        new_clause.push_str(&self.clause);
-        new_clause.push_str(op);
-        new_clause.push_str(&other.clause);
-        self.clause = new_clause;
+        self.clause.reserve(op.len() + other.clause.len());
+        self.clause.push_str(op);
+        self.clause.push_str(&other.clause);
         self.values.extend(other.values);
         self
     }
@@ -64,7 +62,7 @@ impl<T: Debug + Clone> Expr<T> {
     /// Combines multiple Expr using AND connection.
     /// 
     /// # Returns
-    /// - `Expr<T>`: A new Expr instance with the combined conditions.
+    /// - `Expr<T>`: A new Expr instance comp the combined conditions.
     pub fn and(mut self, other: Expr<T>) -> Self {
         self.and_or(other, " AND ");
         self
@@ -74,7 +72,7 @@ impl<T: Debug + Clone> Expr<T> {
     /// Combines multiple Expr using OR connection.
     /// 
     /// # Returns
-    /// - `Expr<T>`: A new Expr instance with the combined conditions.
+    /// - `Expr<T>`: A new Expr instance comp the combined conditions.
     pub fn or(mut self, other: Expr<T>) -> Self {
         self.and_or(other, " OR ");
         self
@@ -96,7 +94,7 @@ impl<T: Debug + Clone> Expr<T> {
     /// * `subquery` - The subquery to be used in the IN condition.
     ///
     /// # Returns
-    /// - `Expr<T>`: A new Expr instance with the IN subquery condition.
+    /// - `Expr<T>`: A new Expr instance comp the IN subquery condition.
     pub fn in_subquery(column: &str, subquery: SelectBuilder<T>) -> Self {
         let mut clause = String::with_capacity(60);
         let (query_sql, values) = Self::add_subquery(subquery, " IN ");
@@ -111,7 +109,7 @@ impl<T: Debug + Clone> Expr<T> {
     /// * `subquery` - The subquery to be used in the EXISTS condition.
     ///
     /// # Returns
-    /// - `Expr<T>`: A new Expr instance with the EXISTS subquery condition.
+    /// - `Expr<T>`: A new Expr instance comp the EXISTS subquery condition.
     pub fn exists(subquery: SelectBuilder<T>) -> Self {
         let (clause, values) = Self::add_subquery(subquery, " EXISTS ");
         Expr { clause, values }
@@ -123,13 +121,13 @@ impl<T: Debug + Clone> Expr<T> {
     /// * `subquery` - The subquery to be used in the NOT EXISTS condition.
     ///
     /// # Returns
-    /// - `Expr<T>`: A new Expr instance with the NOT EXISTS subquery condition.
+    /// - `Expr<T>`: A new Expr instance comp the NOT EXISTS subquery condition.
     pub fn not_exists(subquery: SelectBuilder<T>) -> Self {
         let (clause, values) = Self::add_subquery(subquery, " NOT EXISTS ");
         Expr { clause, values }
     }
 
-    /// Creates a new Expr with a specific column name.
+    /// Creates a new Expr comp a specific column name.
     /// 
     /// # Parameters
     /// - `column`: Column name.
@@ -142,6 +140,12 @@ impl<T: Debug + Clone> Expr<T> {
 
 }
 
+impl<T: Debug + Clone> From<Arc<Expr<T>>> for Expr<T> {
+    fn from(arc: Arc<Expr<T>>) -> Self {
+        (*arc).clone()
+    }
+}
+
 /// Simplifies writing, creates a Expr for field value comparison query.
 pub struct ColumnExpr<T: Debug + Clone> {
     inner: Expr<T>,
@@ -149,7 +153,7 @@ pub struct ColumnExpr<T: Debug + Clone> {
 
 impl<T: Debug + Clone> ColumnExpr<T> {
 
-    fn with(mut self, op: &str, value: impl Into<T>) -> Expr<T> {
+    fn comp(mut self, op: &str, value: impl Into<T>) -> Expr<T> {
         self.inner.clause.push_str(" ");
         self.inner.clause.push_str(op);
         self.inner.clause.push_str(" ?");
@@ -166,7 +170,7 @@ impl<T: Debug + Clone> ColumnExpr<T> {
     /// - `Expr`: Initialized filter clause builder instance.
     pub fn eq(self, value: impl Into<T>) -> Expr<T> 
     {
-        self.with("=", value)
+        self.comp("=", value)
     }
 
     /// Creates a greater than condition.
@@ -177,7 +181,7 @@ impl<T: Debug + Clone> ColumnExpr<T> {
     /// # Returns
     /// - `Expr`: Initialized filter clause builder instance.
     pub fn gt(self, value: impl Into<T>) -> Expr<T> {
-        self.with(">", value)
+        self.comp(">", value)
     }
 
     /// Creates a less than condition.
@@ -188,7 +192,7 @@ impl<T: Debug + Clone> ColumnExpr<T> {
     /// # Returns
     /// - `Expr`: Initialized filter clause builder instance.
     pub fn lt(self, value: impl Into<T>) -> Expr<T> {
-        self.with("<", value)
+        self.comp("<", value)
     }
 
     /// Creates a greater than or equal condition.
@@ -199,7 +203,7 @@ impl<T: Debug + Clone> ColumnExpr<T> {
     /// # Returns
     /// - `Expr`: Initialized filter clause builder instance.
     pub fn gte(self, value: impl Into<T>) -> Expr<T> {
-        self.with(">=", value)
+        self.comp(">=", value)
     }
 
     /// Creates a less than or equal condition.
@@ -210,7 +214,7 @@ impl<T: Debug + Clone> ColumnExpr<T> {
     /// # Returns
     /// - `Expr`: Initialized filter clause builder instance.
     pub fn lte(self, value: impl Into<T>) -> Expr<T> {
-        self.with("<=", value)
+        self.comp("<=", value)
     }
 
     /// Creates a LIKE condition.
@@ -221,7 +225,7 @@ impl<T: Debug + Clone> ColumnExpr<T> {
     /// # Returns
     /// - `Expr`: Initialized filter clause builder instance.
     pub fn like(self, value: impl Into<T>) -> Expr<T> {
-        self.with("LIKE", value)
+        self.comp("LIKE", value)
     }
 
     /// Creates a not equal condition.
@@ -232,7 +236,7 @@ impl<T: Debug + Clone> ColumnExpr<T> {
     /// # Returns
     /// - `Expr`: Initialized filter clause builder instance.
     pub fn ne(self, value: impl Into<T>) -> Expr<T> {
-        self.with("!=", value)
+        self.comp("!=", value)
     }
     
     /// Creates an IS NULL or IS NOT NULL query condition.
@@ -284,7 +288,7 @@ impl<T: Debug + Clone> ColumnExpr<T> {
     ///
     /// # Returns
     /// - `Expr`: Initialized filter clause builder instance.
-    pub fn in_<I, U>(self, values: I) -> Expr<T>
+    pub fn is_in<I, U>(self, values: I) -> Expr<T>
     where
         I: IntoIterator<Item = U>,
         U: Into<T>,

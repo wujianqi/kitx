@@ -5,35 +5,81 @@ use sqlx::error::{DatabaseError, ErrorKind};
 use sqlx::Error as SqlxError;
 
 #[derive(Debug)]
-pub struct OperationError {
+pub struct KitxError {
     message: String,
 }
 
-impl fmt::Display for OperationError {
+#[cfg(any(feature = "mysql", feature = "sqlite", feature = "postgres"))]
+#[derive(Debug)]
+pub enum OperationError {
+    DBPoolNotInitialized,
+    NoPrimaryKeyDefined,
+    PageNumberInvalid,
+    LimitInvalid,
+    NoTableNameDefined,
+    SoftDeleteConfigNotSet,
+    SoftDeleteColumnTypeInvalid,
+    KeysListEmpty,
+    RestoreOperationNotSupported,
+    ColumnsListEmpty,
+    NoEntitiesProvided,
+    ValueInvalid(String),
+    NoValuesProvided,
+    PrimaryKeyNotFound(String),
+    Other(String),
+}
+
+#[cfg(any(feature = "mysql", feature = "sqlite", feature = "postgres"))]
+impl OperationError {
+    pub fn message(&self) -> String {
+        match self {
+            OperationError::DBPoolNotInitialized => "Database pool not initialized".to_string(),
+            OperationError::NoPrimaryKeyDefined => "No primary key defined".to_string(),
+            
+            OperationError::PageNumberInvalid => "Page number and page size must be greater than 0".to_string(),
+            OperationError::LimitInvalid => "Limit must be greater than 0".to_string(),
+            OperationError::NoTableNameDefined => "Table is excluded from soft delete".to_string(),
+            OperationError::SoftDeleteConfigNotSet => "Soft delete configuration not found".to_string(),
+            OperationError::SoftDeleteColumnTypeInvalid=> "Soft delete column type must be boolean".to_string(),
+            OperationError::KeysListEmpty => "Keys list cannot be empty".to_string(),
+            OperationError::RestoreOperationNotSupported => "Restore operation not supported without soft delete configuration or valid primary key".to_string(),
+            OperationError::ValueInvalid(column_name) => format!("Field {} has an invalid value", column_name),
+            OperationError::ColumnsListEmpty => "No valid fields provided".to_string(),
+            OperationError::NoEntitiesProvided => "No entities provided".to_string(),
+            OperationError::PrimaryKeyNotFound(key_name) => format!("Primary key {} not found", key_name),
+            OperationError::NoValuesProvided => "No values provided".to_string(),
+            OperationError::Other(msg) => msg.to_owned(),
+        }
+    }
+}
+
+impl fmt::Display for KitxError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{:?}", self.message)
     }
 }
 
-impl Error for OperationError {}
+impl Error for KitxError {}
 
-impl OperationError {
-       
-    /// Creates a new OperationError instance.
+impl KitxError { 
+    /// Creates a new KitxError instance
+    /// 
     /// # Arguments
-    /// * `message` - The error message.
-    pub fn new(message: String) -> OperationError {
-        OperationError { message }
-    }
-
-    #[cfg(any(feature = "mysql", feature = "sqlite", feature = "postgres"))]
-    pub fn db(message: String) -> SqlxError {
-        SqlxError::Database(Box::new(OperationError { message }))
+    /// * `message` - Error description message
+    pub fn new(message: String) -> Self {
+        KitxError { message }
     }
 }
 
 #[cfg(any(feature = "mysql", feature = "sqlite", feature = "postgres"))]
-impl DatabaseError for OperationError {
+impl From<OperationError> for SqlxError {
+    fn from(err: OperationError) -> Self {
+        SqlxError::Database(Box::new(KitxError {  message: err.message() }))
+    }
+}
+
+#[cfg(any(feature = "mysql", feature = "sqlite", feature = "postgres"))]
+impl DatabaseError for KitxError {
     fn as_error(&self) -> &(dyn Error + Send + Sync + 'static) {
         self
     }

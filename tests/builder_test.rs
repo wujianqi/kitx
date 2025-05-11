@@ -1,19 +1,20 @@
 use std::borrow::Cow;
 
 use kitx::common::builder::{BuilderTrait, FilterTrait};
-use kitx::sql::base::SqlBuilder;
+use kitx::common::types::OrderBy;
+use kitx::sql::query_builder::SqlBuilder;
 use kitx::sql::cte::{WithCTE, CTE};
 use kitx::sql::delete::DeleteBuilder;
 use kitx::sql::insert::InsertBuilder;
-use kitx::sql::params::Value;
+use kitx::sql::bind_params::Value;
 use kitx::sql::update::UpdateBuilder;
 
 use kitx::sql::filter::Expr;
 
 use kitx::sql::select::SelectBuilder;
-use kitx::sql::join::Join;
-use kitx::sql::agg::Agg;
-use kitx::sql::case_when::CW;
+use kitx::sql::join::JoinType;
+use kitx::sql::agg::Func;
+use kitx::sql::case_when::CaseWhen;
 
 #[test]
 fn builder_test() {
@@ -28,11 +29,11 @@ fn builder_test() {
 fn select_test() {
     let query = SelectBuilder::columns(&["id", "name"])
         .from("users")
-        .where_(Expr::<Value>::col("age").eq(23))
-        .and(Expr::col("salary").gt(45))
-        .or(Expr::col("status").in_(vec!["A", "B"]))
-        .order_by("name", true)
-        .order_by("age", false)
+        .and_where(Expr::<Value>::col("age").eq(23))
+        .and_where(Expr::col("salary").gt(45))
+        .or_where(Expr::col("status").is_in(vec!["A", "B"]))
+        .order_by("name", OrderBy::Asc)
+        .order_by("age", OrderBy::Desc)
         .build().0;
 
     assert_eq!(query, "SELECT id, name FROM users WHERE age = ? AND salary > ? OR status IN (?, ?) ORDER BY name ASC, age DESC");
@@ -48,7 +49,7 @@ fn select_with_limit_offset_test() {
     //assert_eq!(query, "SELECT id, name FROM users LIMIT ? OFFSET ?");
 
     let mut bd = builder;
-        bd.where_mut(Expr::col("salary").gt(25));
+        bd.and_where_mut(Expr::col("salary").gt(25));
 
     assert_eq!(bd.build().0, "SELECT id, name FROM users WHERE salary > ? LIMIT ? OFFSET ?");
 }
@@ -79,9 +80,9 @@ fn update_test() {
             Value::Text(Cow::Borrowed("John")),
             Value::Int(30),
         ],)
-        .where_(Expr::col("age").eq(23))
-        .and(Expr::col("salary").gt(45))
-        .or(Expr::col("status").in_(vec!["A", "B"]))
+        .and_where(Expr::col("age").eq(23))
+        .and_where(Expr::col("salary").gt(45))
+        .or_where(Expr::col("status").is_in(vec!["A", "B"]))
         .build().0;
 
     assert_eq!(query, "UPDATE users SET name = ?, age = ? WHERE age = ? AND salary > ? OR status IN (?, ?)");
@@ -89,9 +90,9 @@ fn update_test() {
 #[test]
 fn delete_test() {
     let query = DeleteBuilder::<Value>::from("users")
-        .where_(Expr::<Value>::col("age").eq(23))
-        .and(Expr::col("salary").gt(45))
-        .or(Expr::col("status").in_(vec!["A", "B"]))
+        .and_where(Expr::<Value>::col("age").eq(23))
+        .and_where(Expr::col("salary").gt(45))
+        .or_where(Expr::col("status").is_in(vec!["A", "B"]))
         .build().0;
 
     assert_eq!(query, "DELETE FROM users WHERE age = ? AND salary > ? OR status IN (?, ?)");    
@@ -102,8 +103,8 @@ fn test_join() {
     // Test INNER JOIN with ON condition
     let sql = SelectBuilder::columns(&["id", "name"])
         .from("users")
-        .where_(Expr::<Value>::new("users.age", "=", 25))
-        .join(Join::inner("orders")
+        .and_where(Expr::<Value>::new("users.age", "=", 25))
+        .join(JoinType::inner("orders")
             .on(Expr::from_str("users.id = orders.user_id")
             .and(Expr::from_str("users.name = orders.user_name"))
     )).build().0;
@@ -117,7 +118,7 @@ fn test_join() {
 #[test]
 fn test_aggregate_functions() {
     let sql = SelectBuilder::columns(&["department"])
-        .aggregate(Agg::<Value>::default()
+        .aggregate(Func::<Value>::default()
             .count("id", "total_users")
             .sum("age", "total_age")
             .avg("age", "avg_age")
@@ -127,7 +128,7 @@ fn test_aggregate_functions() {
             .having(Expr::col("COUNT(id)").gt(10))
         )
         .from("users")
-        .where_(Expr::col("age").lt(18))
+        .and_where(Expr::col("age").lt(18))
         .build().0;
 
     assert_eq!(
@@ -140,7 +141,7 @@ fn test_aggregate_functions() {
 fn test_update_with_cte() {
     let subquery = SelectBuilder::columns(&["id", "name"])
         .from("users")
-        .where_(Expr::new("age", ">", 18));
+        .and_where(Expr::new("age", ">", 18));
 
     let cte = CTE::new("adult_users", subquery);
 
@@ -149,7 +150,7 @@ fn test_update_with_cte() {
 
     let update_query = UpdateBuilder::table("employees")
         .set("salary", 10000)
-        .where_(
+        .and_where(
             Expr::in_subquery("id", SelectBuilder::columns(&["id"]).from("adult_users")
         ))
         .with(with_cte);
@@ -164,11 +165,11 @@ fn test_update_with_cte() {
 #[test]
 fn test_case_when_builder() {
     let sql = SelectBuilder::columns(&["id, name"])
-        .case_when(CW::<Value>::case()
+        .case_when(CaseWhen::<Value>::case()
             .when(Expr::col("age").gt(18), "adult")
             .when(Expr::col("age").lte(18)
                 .and(Expr::col("age").gt(12)),"teenager")
-            .else_result("child")
+            .otherwise("child")
         )
         .from("users")
         .build().0;
@@ -180,15 +181,15 @@ fn test_case_when_builder() {
 #[cfg(feature = "sqlite")]
 #[test]
 fn sql_sqlite_test() {
-    use kitx::sqlite::sql::{col, Select};
+    use kitx::sqlite::Select;
 
     let query = Select::columns(&["id", "name "])
         .from("users")        
-        .where_(col("age").eq(23))
-        .and(col("salary").gt(45))
-        .or(col("status").in_(vec!["A", "B"]))
-        .order_by("name", true)
-        .order_by("age", false)
+        .and_where(Expr::col("age").eq(23))
+        .and_where(Expr::col("salary").gt(45))
+        .or_where(Expr::col("status").is_in(vec!["A", "B"]))
+        .order_by("name", OrderBy::Asc)
+        .order_by("age", OrderBy::Desc)
         .build().0;
 
     assert_eq!(query, "SELECT id, name FROM users WHERE age = ? AND salary > ? OR status IN (?, ?) ORDER BY name ASC, age DESC");
@@ -197,7 +198,7 @@ fn sql_sqlite_test() {
 #[cfg(feature = "sqlite")]
 #[test]
 fn upsert_test() {
-    use kitx::sqlite::{kind::DataKind, sql::Insert};
+    use kitx::sqlite::{kind::DataKind, Insert};
 
     let query = Insert::into("users")
         .columns(&["id", "name", "age"])

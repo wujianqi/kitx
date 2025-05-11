@@ -1,8 +1,9 @@
 use std::fmt::Debug;
 use std::future::Future;
 
-use serde::{Deserialize, Serialize};
 use sqlx::{Database, Error, FromRow};
+
+use super::types::{CursorPaginatedResult, PaginatedResult};
 
 pub trait OperationsTrait<'a, T, DB, D>: Send + Sync 
 where
@@ -15,7 +16,7 @@ where
     type DeleteFilter<'b>;
 
     /// Creates a new `Operations` instance.
-    fn new(table_name: &'a str, primary_key: (&'a str, bool)) -> Self;
+    fn new(table_name: &'a str, primarys: (&'a str, bool)) -> Self;
 
     /// Inserts a single record into the database and returns the primary key value of the inserted record.
     /// 
@@ -44,6 +45,19 @@ where
     /// Returns the number of affected rows.
     fn update_by_key(&self, entity: T) -> impl Future<Output = Result<DB::QueryResult, Error>> + Send;
 
+
+    /// Updates multiple records based on computed values derived from existing data.
+    ///
+    /// # Parameters
+    /// * `columns`: A list of columns to be updated, typically involving expressions based on existing data (e.g., `"views = views + 1"`).
+    /// * `condition`: A query condition structure used to filter which records to update.
+    ///
+    /// # Returns
+    /// Returns the number of affected rows.
+    fn update_by_expr<F>(&self, columns: &[(&str, &str)], query_condition: F) -> impl Future<Output = Result<DB::QueryResult, Error>> + Send
+    where
+        F: Fn(&mut Self::UpdateFilter<'a>) + Send + Sync + 'a;
+    
     /// Updates a single record and returns the number of affected rows.
     /// 
     /// # Parameters
@@ -119,8 +133,8 @@ where
     /// 
     /// # Returns
     /// Returns a single record.
-    fn get_by_key(&self, id: impl Into<D> + Send) -> impl Future<Output = Result<Option<T>, Error>> + Send;
-
+    fn get_one_by_key(&self, id: impl Into<D> + Send) -> impl Future<Output = Result<Option<T>, Error>> + Send;
+   
     /// Queries and returns a single record based on field conditions.
     /// 
     /// # Parameters
@@ -170,7 +184,7 @@ where
     /// 
     /// # Parameters
     /// * `query_condition`: A query condition structure.
-    fn exist<F>(&self, query_condition: F) -> impl Future<Output = Result<bool, Error>> + Send
+    fn exists<F>(&self, query_condition: F) -> impl Future<Output = Result<bool, Error>> + Send
     where
         F: Fn(&mut Self::QueryFilter<'a>) + Send + Sync + 'a;
 
@@ -197,23 +211,4 @@ where
     /// * `keys`: A list of primary key values of the records to be restored.
     fn restore_many(&self, keys: Vec<impl Into<D> + Send>) -> impl Future<Output = Result<DB::QueryResult, Error>> + Send;
 
-}
-
-/// Paginated query result structure.
-#[derive(Debug, Serialize, Deserialize, Default, Clone, PartialEq, Hash)]
-pub struct PaginatedResult<T> {
-    /// Data records queried.
-    pub data: Vec<T>,
-    /// Total number of records.
-    pub total: u64,
-    pub page_number: u64,
-    pub page_size: u64,
-}
-
-/// Cursor paginated result structure.
-#[derive(Debug, Serialize, Deserialize, Default, Clone, PartialEq, Hash)]
-pub struct CursorPaginatedResult<T> {
-    pub data: Vec<T>,      // Paginated data.
-    pub next_cursor: Option<T>, // Next cursor value.
-    pub page_size: u64,
 }

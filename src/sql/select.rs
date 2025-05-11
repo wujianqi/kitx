@@ -1,12 +1,12 @@
-use std::fmt::Debug;
-use crate::common::builder::{BuilderTrait, QueryTrait, FilterTrait};
+use std::{collections::HashMap, fmt::Debug};
+use crate::common::{builder::{BuilderTrait, FilterTrait, QueryTrait}, types::OrderBy};
 use super::{
-    agg::Agg, case_when::CW, cte::WithCTE, filter::Expr, helper::{
+    agg::Func, case_when::CaseWhen, cte::WithCTE, filter::Expr, helper::{
         build_limit_offset_clause, 
         build_order_by_clause, 
         build_where_clause, 
         combine_where_clause
-    }, join::Join
+    }, join::JoinType
 };
 
 // SELECT-specific builder
@@ -15,9 +15,9 @@ pub struct SelectBuilder<T: Debug + Clone> {
     sql: String,
     values: Vec<T>,
     where_clauses: Vec<Expr<T>>,
-    order_by_clauses: Vec<(String, bool)>,
+    order_by_clauses: HashMap<String, OrderBy>,
     limit_offset: Option<(T, Option<T>)>,
-    joins: Vec<Join<T>>,
+    joins: Vec<JoinType<T>>,
     group_having: Option<(String, Vec<T>)>,
 }
 
@@ -32,9 +32,6 @@ impl<T: Debug + Clone> SelectBuilder<T> {
     pub fn columns(columns: &[&str]) -> Self {
         let mut sql = String::with_capacity(100);
         sql.push_str("SELECT ");
-        if columns.is_empty() {
-            sql.push_str("*");
-        }
         for (i, col) in columns.iter().enumerate() {
             if i > 0 {
                 sql.push_str(", ");
@@ -45,7 +42,7 @@ impl<T: Debug + Clone> SelectBuilder<T> {
             sql,
             values: vec![],
             where_clauses: vec![],
-            order_by_clauses: vec![],
+            order_by_clauses: HashMap::new(),
             limit_offset: None,
             joins: vec![],
             group_having: None,
@@ -60,23 +57,13 @@ impl<T: Debug + Clone> SelectBuilder<T> {
     /// # Returns
     /// - `SelectBuilder`: Initialized SelectBuilder instance.
     pub fn from(mut self, table: &str) -> Self {
+        if self.sql.ends_with("SELECT ") {
+            self.sql.push('*');
+        }
         self.sql.push_str(" FROM ");
         self.sql.push_str(table);
         self
-    }
-
-    /// Adds a WHERE clause to the SELECT statement.
-    /// 
-    /// # Parameters
-    /// - `filter`: WHERE clause.
-    ///
-    /// # Returns
-    /// - `SelectBuilder`: Updated SelectBuilder instance.
-    pub fn where_(mut self, filter: Expr<T>) -> Self {
-        self.where_mut(filter);
-        self
-    }
-    
+    }   
 
     /// Adds an AND condition to the last WHERE clause.
     /// 
@@ -85,8 +72,8 @@ impl<T: Debug + Clone> SelectBuilder<T> {
     ///
     /// # Returns
     /// - `SelectBuilder`: Updated SelectBuilder instance.
-    pub fn and(mut self, filter: Expr<T>) -> Self {
-        self.and_mut(filter);
+    pub fn and_where(mut self, filter: Expr<T>) -> Self {
+        self.and_where_mut(filter);
         self
     }
 
@@ -97,8 +84,8 @@ impl<T: Debug + Clone> SelectBuilder<T> {
     ///
     /// # Returns
     /// - `SelectBuilder`: Updated SelectBuilder instance.
-    pub fn or(mut self, filter: Expr<T>) -> Self {
-        self.or_mut(filter);
+    pub fn or_where(mut self, filter: Expr<T>) -> Self {
+        self.or_where_mut(filter);
         self
     }
 
@@ -109,21 +96,24 @@ impl<T: Debug + Clone> SelectBuilder<T> {
     ///
     /// # Returns
     /// - `SelectBuilder`: Updated SelectBuilder instance.
-    pub fn join(mut self, join: Join<T>) -> Self {
-        self.joins.push(join);
+    pub fn join(mut self, join_clauses: JoinType<T>) -> Self {
+        self.joins.push(join_clauses);
         self
     }
 
     /// Adds an aggregate function to the SELECT statement.
     /// Only for aggregated groups.
-    pub fn aggregate(mut self, agg: Agg<T>) -> Self {
+    pub fn aggregate(mut self, agg: Func<T>) -> Self {
+        if !self.sql.ends_with("SELECT ") {
+            self.sql.push_str(", ");
+        }
         self.sql.push_str(&agg.build_aggregates());
         self.group_having = agg.build_group_having();
         self
     }
     
     /// Adds a CASE WHEN clause to the SELECT statement.
-    pub fn case_when(mut self, case_when: CW<T>) -> Self {
+    pub fn case_when(mut self, case_when: CaseWhen<T>) -> Self {
         let (case_when_sql, case_when_values) = case_when.build();
         self.sql.push_str(", ");
         self.sql.push_str(&case_when_sql);
@@ -139,8 +129,8 @@ impl<T: Debug + Clone> SelectBuilder<T> {
     ///
     /// # Returns
     /// - `SelectBuilder`: Updated SelectBuilder instance.
-    pub fn order_by(mut self, column: &str, ascending: bool) -> Self {
-        self.order_by_mut(column, ascending);
+    pub fn order_by(mut self, column: &str, ordering: OrderBy) -> Self {
+        self.order_by_mut(column, ordering);
         self
     }
 
@@ -212,42 +202,40 @@ impl<T: Debug + Clone> SelectBuilder<T> {
         self
     }
 
+    /// Returns a reference to the WHERE clauses.
+    pub fn take_where_clauses(self) -> Vec<Expr<T>> {
+        self.where_clauses
+    }
+
 }
 
 
 impl<T: Debug + Clone> FilterTrait<T> for SelectBuilder<T> {
-    type Expr = Expr<T>;    
-    /// Adds a WHERE clause to the SELECT statement.
-    fn where_mut(&mut self, filter: Expr<T>) -> &mut Self {
-        self.where_clauses.push(filter);
-        self
-    }
-
+    type Expr = Expr<T>;
     /// Adds an AND condition to the last WHERE clause.
-    fn and_mut(&mut self, filter: Expr<T>) -> &mut Self {
-        combine_where_clause(&mut self.where_clauses, filter, false);
+    fn and_where_mut<F>(&mut self, filter: F) -> &mut Self
+    where
+        F: Into<Self::Expr>
+    {
+        combine_where_clause(&mut self.where_clauses, filter.into(), false);
         self
     }
 
     /// Adds an OR condition to the last WHERE clause.
-    fn or_mut(&mut self, filter: Expr<T>) -> &mut Self {
-        combine_where_clause(&mut self.where_clauses, filter, true);
+    fn or_where_mut<F>(&mut self, filter: F) -> &mut Self
+    where
+        F: Into<Self::Expr>
+    {
+        combine_where_clause(&mut self.where_clauses, filter.into(), true);
         self
-    }
-    
+    }    
 }
 
 
 impl<T: Debug + Clone> QueryTrait<T> for SelectBuilder<T> {
     /// Adds an ORDER BY clause to the SELECT statement.
-    fn order_by_mut(&mut self, column: &str, ascending: bool) -> &mut Self {
-        if let Some(index) = self.order_by_clauses.iter().position(|(col, _)| col == column) {
-            // Replace the existing order by clause
-            self.order_by_clauses[index] = (column.to_string(), ascending);
-        } else {
-            // Add a new order by clause
-            self.order_by_clauses.push((column.to_string(), ascending));
-        }
+    fn order_by_mut(&mut self, column: &str, ordering: OrderBy) -> &mut Self {
+        self.order_by_clauses.insert(column.to_string(), ordering);
         self
     }
 
@@ -278,23 +266,21 @@ impl<T: Debug + Clone> BuilderTrait<T> for SelectBuilder<T> {
 
         // Process WHERE clauses
         if !self.where_clauses.is_empty() {
-            let where_clauses = &self.where_clauses;
-            let (where_sql, where_values) = build_where_clause(where_clauses.to_vec());
+            let (where_sql, where_values) = build_where_clause(self.where_clauses);
             final_sql.push_str(" ");
             final_sql.push_str(&where_sql);
             values.extend(where_values);
         }
 
         // Process GROUP BY and HAVING clauses
-        if let Some((group_having_sql, group_having_values)) = &self.group_having {
+        if let Some((group_having_sql, group_having_values)) = self.group_having {
             final_sql.push_str(&group_having_sql);
-            values.extend(group_having_values.to_vec());
+            values.extend(group_having_values);
         }
 
         // Process ORDER BY clauses
         if !self.order_by_clauses.is_empty() {
-            let order_by_clauses = &self.order_by_clauses;
-            let order_by_sql = build_order_by_clause(order_by_clauses.to_vec());
+            let order_by_sql = build_order_by_clause(&self.order_by_clauses);
             final_sql.push_str(" ");
             final_sql.push_str(&order_by_sql);
         }

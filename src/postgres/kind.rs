@@ -13,10 +13,10 @@ use sqlx::types::Decimal;
 use serde_json::Value;
 use uuid::Uuid;
 
-use crate::utils::value::{unwrap_option, ValueConvert};
+use crate::utils::typpe_conversion::{unwrap_option, ValueConvert};
 
 /// Enum representing PostgreSQL data types, supporting the main PostgreSQL type system
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug, Clone, PartialEq)]
 pub enum DataKind<'a> {
     // Basic types
     #[default]
@@ -52,7 +52,7 @@ pub enum DataKind<'a> {
     Uuid(Uuid),             // UUID
 
     // JSON types
-    Json(Value),            // JSON, JSONB
+    Json(Cow<'a, Value>),    // JSON, JSONB
 
     // Array type
     Array(Vec<DataKind<'a>>), // Arrays of any supported type
@@ -173,7 +173,7 @@ impl<'a> ValueConvert<DataKind<'a>> for DataKind<'a> {
             bool => |v: &bool| DataKind::Bool(*v),
             Uuid => |v: &Uuid| DataKind::Uuid(*v),
             Decimal => |v: &Decimal| DataKind::Numeric(*v),
-            Value => |v: &Value| DataKind::Json(v.clone())
+            Value => |v: &Value| DataKind::Json(Cow::Owned(v.to_owned()))
         );
     }
 }
@@ -205,7 +205,7 @@ impl_from!(NaiveDate, DataKind::Date);
 impl_from!(NaiveTime, DataKind::Time);
 impl_from!(NaiveDateTime, DataKind::Timestamp);
 impl_from!(DateTime<Utc>, DataKind::Timestamptz);
-impl_from!(Value, DataKind::Json);
+impl_from!(Value, |value: Value| DataKind::Json(Cow::Owned(value)));
 impl_from!(Uuid, DataKind::Uuid);
 impl_from!(Decimal, DataKind::Numeric);
 impl_from!(Vec<DataKind<'a>>, DataKind::Array);

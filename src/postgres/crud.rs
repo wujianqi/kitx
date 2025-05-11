@@ -1,17 +1,19 @@
 use std::borrow::Cow;
 use std::marker::PhantomData;
+use std::sync::Arc;
 use field_access::FieldAccess;
 use sqlx::postgres::{PgRow, PgQueryResult};
 use sqlx::{Error, FromRow, Postgres};
 
 use crate::common::query::QueryExecutor;
-use crate::common::operations::{OperationsTrait, CursorPaginatedResult, PaginatedResult};
-use crate::builders::base::TableQueryBuilder;
-use crate::utils::query::QueryCondition;
+use crate::common::operations::OperationsTrait;
+use crate::builders::single::SingleKeyTable;
+use crate::common::types::{CursorPaginatedResult, PaginatedResult};
+use crate::utils::query_condition::QueryCondition;
 
 use super::kind::DataKind;
 use super::query::PostgresQuery;
-use super::sql::{Delete, Select, Update};
+use super::{Delete, Select, Update};
 use super::global::{get_global_soft_delete_field, get_global_filter};
 
 
@@ -20,12 +22,22 @@ pub struct Operations<'a, T>
 where
     T: for<'r> FromRow<'r, PgRow> + FieldAccess + Default + Unpin + Send + Sync,
 {
-    
-    table_query: TableQueryBuilder<'a, T, DataKind<'a>, Postgres, DataKind<'a>> ,
-    query: PostgresQuery,
+    table_query: SingleKeyTable<'a, T, DataKind<'a>, Postgres, DataKind<'a>> ,
+    query: Arc<PostgresQuery<'a>>,
 
     /// Phantom data for compile-time type checking.
     _phantom: PhantomData<&'a T>,    
+}
+
+impl<'a, T> Operations<'a, T>
+where
+    T: for<'r> FromRow<'r, PgRow> + FieldAccess + Default + Unpin + Send + Sync,
+{
+
+    pub fn set(mut self, query: Arc<PostgresQuery<'a>>)  -> Self {
+        self.query = query;
+        self
+    }
 }
 
 impl<'a, T> OperationsTrait<'a, T, Postgres, DataKind<'a>> for Operations<'a, T>
@@ -40,33 +52,21 @@ where
     /// # Arguments
     /// * `table_name` - Table name representing the database table for the entity.
     /// * `primary_key` - Primary key field name used to uniquely identify records in the table, and whether it generates a default value.
-    /// 
-    fn new(table_name: &'a str, primary_key: (&'a str, bool)) -> Self {
-        let primary_key = if primary_key.0.is_empty() {
-            (primary_key.0, false)
-        } else {
-            primary_key
-        };
-
-        let table_query = TableQueryBuilder::new(
+    fn new(table_name: &'a str, primary: (&'a str, bool)) -> Self {    
+        let table_query = SingleKeyTable::new(
             table_name,
-            primary_key,
+            primary,
             get_global_soft_delete_field(),
             get_global_filter(),
-        );        
-        Operations { table_query,  query: PostgresQuery, _phantom: PhantomData}
+        );
+        Operations { 
+            table_query, 
+            query: Arc::new(PostgresQuery::new()),
+            _phantom: PhantomData }
     }
-
-    async fn get_list<F>(&self, query_condition: F) -> Result<Vec<T>, Error>
-    where
-        F: Fn(&mut Select<'a>) + Send + Sync + 'a,
-    {
-        let builder = self.table_query.get_list(query_condition);
-        self.query.fetch_all::<T, Select>(builder).await
-    }
-
-    async fn get_by_key(&self, id: impl Into<DataKind<'a>> + Send) -> Result<Option<T>, Error> {
-        let builder = self.table_query.get_by_key(id);
+    
+    async fn get_one_by_key(&self, id: impl Into<DataKind<'a>> + Send) -> Result<Option<T>, Error> {
+        let builder = self.table_query.get_one_by_key(id)?;
         self.query.fetch_optional::<T, Select>(builder).await
     }
 
@@ -76,6 +76,13 @@ where
     {
         let builder = self.table_query.get_one(query_condition);
         self.query.fetch_optional::<T, Select>(builder).await
+    }
+    async fn get_list<F>(&self, query_condition: F) -> Result<Vec<T>, Error>
+    where
+        F: Fn(&mut Select<'a>) + Send + Sync + 'a,
+    {
+        let builder = self.table_query.get_list(query_condition);
+        self.query.fetch_all::<T, Select>(builder).await
     }
 
     async fn get_list_paginated<F>(
@@ -90,7 +97,7 @@ where
         let qc = QueryCondition::new(query_condition);
         
         let builder = self.table_query.get_list_paginated(page_number, page_size, qc.get())?;
-        
+
         let (total, data) = tokio::join!(
             self.count(qc.get()),
             self.query.fetch_all::<T, Select>(builder)
@@ -156,24 +163,48 @@ where
         self.query.execute(builder).await
     }
 
-    async fn delete_by_key(&self, key: impl Into<DataKind<'a>> + Send) -> Result<PgQueryResult, Error> {
-        let builder = self.table_query.delete_by_key(key);
+    
+
+    async fn update_by_expr<F>(&self, columns: &[(&str, &str)], query_condition: F) -> Result<PgQueryResult, Error>
+    where
+        F: Fn(&mut Self::UpdateFilter<'a>) + Send + Sync + 'a,
+    {
+        let builder = self.table_query.update_by_expr(columns, query_condition)?;
         self.query.execute(builder).await
     }
 
-    async fn delete_many(&self, keys: Vec<impl Into<DataKind<'a>>>) -> Result<PgQueryResult, Error> {
-        let builder = self.table_query.delete_many(keys)?;
-        self.query.execute(builder).await
+    async fn delete_by_key(&self, key: impl Into<DataKind<'a>> + Send) -> Result<PgQueryResult, Error> {
+        if self.table_query.is_soft_delete_enabled() {
+            let builder = self.table_query.soft_delete_by_key(key)?;
+            self.query.execute(builder).await
+        } else {
+            let builder = self.table_query.delete_by_key(key)?;
+            self.query.execute(builder).await
+        }
+    }
+
+    async fn delete_many(&self, keys: Vec<impl Into<DataKind<'a>> + Send>) -> Result<PgQueryResult, Error> {
+        if self.table_query.is_soft_delete_enabled() {
+            let builder = self.table_query.soft_delete_many(keys)?;
+            self.query.execute(builder).await
+        } else {
+            let builder = self.table_query.delete_many(keys)?;
+            self.query.execute(builder).await
+        }
     }
 
     async fn delete_by_cond<F>(&self, query_condition: F) -> Result<PgQueryResult, Error>
     where
         F: Fn(&mut Self::DeleteFilter<'a>) + Send + Sync + 'a,
     {
-        let builder = self.table_query.delete_by_cond(query_condition);
-        self.query.execute(builder).await
+        if self.table_query.is_soft_delete_enabled() {
+            let builder = self.table_query.soft_delete_by_cond(query_condition)?;
+            self.query.execute(builder).await
+        } else {
+            let builder = self.table_query.delete_by_cond(query_condition);
+            self.query.execute(builder).await
+        }
     }
-
     async fn restore_one(&self, key: impl Into<DataKind<'a>> + Send) -> Result<PgQueryResult, Error> {
         let builder = self.table_query.restore_one(key)?;
         self.query.execute(builder).await
@@ -184,11 +215,11 @@ where
         self.query.execute(builder).await
     }
 
-    async fn exist<F>(&self, query_condition: F) -> Result<bool, Error>
+    async fn exists<F>(&self, query_condition: F) -> Result<bool, Error>
     where
         F: Fn(&mut Select<'a>) + Send + Sync + 'a,
     {
-        let builder = self.table_query.exist(query_condition);
+        let builder = self.table_query.exists(query_condition);
         let result = self.query.fetch_optional::<(i32,), Select>(builder).await?;
         Ok(result.is_some())
     }

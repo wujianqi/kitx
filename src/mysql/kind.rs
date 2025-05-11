@@ -7,10 +7,10 @@ use sqlx::{Encode, Type, TypeInfo};
 use sqlx::types::{Decimal, Uuid};
 use serde_json::Value;
 
-use crate::utils::value::{unwrap_option, ValueConvert};
+use crate::utils::typpe_conversion::{unwrap_option, ValueConvert};
 
 /// Data type enumeration, supporting the main type system of MySQL
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug, Clone, PartialEq)]
 pub enum DataKind<'a> {
     // Basic types
     #[default]
@@ -45,7 +45,7 @@ pub enum DataKind<'a> {
     Timestamp(DateTime<Utc>), // TIMESTAMP
 
     // Special types
-    Json(Value),          // JSON
+    Json(Cow<'a, Value>),          // JSON
     Uuid(Uuid),           // BINARY(16), UUID (MariaDB)
     IpAddr(IpAddr),       // INET4/INET6 (MariaDB), VARCHAR/TEXT
     Ipv4Addr(Ipv4Addr),   // INET4 (MariaDB), VARCHAR/TEXT
@@ -87,7 +87,7 @@ impl<'a> Encode<'a, MySql> for DataKind<'a> {
             DataKind::Timestamp(ts) => <DateTime<Utc> as Encode<'_, MySql>>::encode(*ts, buf),
 
             // Special types
-            DataKind::Json(j) => <Value as Encode<'_, MySql>>::encode(j.clone(), buf),
+            DataKind::Json(j) => <Value as Encode<'_, MySql>>::encode(j.as_ref().clone(), buf),
             DataKind::Uuid(u) => <Uuid as Encode<'_, MySql>>::encode(*u, buf),
             DataKind::IpAddr(ip) => <String as Encode<'_, MySql>>::encode(ip.to_string(), buf),
             DataKind::Ipv4Addr(ipv4) => <String as Encode<'_, MySql>>::encode(ipv4.to_string(), buf),
@@ -194,7 +194,7 @@ impl<'a> ValueConvert<DataKind<'a>> for DataKind<'a> {
             Vec<u8> => |v: &Vec<u8>| DataKind::Blob(Cow::Owned(v.clone())),
             &[u8] => |v: &&'a [u8]| DataKind::Blob(Cow::Borrowed(*v)),
             bool => |v: &bool| DataKind::Bool(*v),
-            Value => |v: &Value| DataKind::Json(v.clone()),
+            Value => |v: &Value| DataKind::Json(Cow::Owned(v.to_owned())),
             IpAddr => |v: &IpAddr| DataKind::IpAddr(*v),
             Ipv4Addr => |v: &Ipv4Addr| DataKind::Ipv4Addr(*v),
             Ipv6Addr => |v: &Ipv6Addr| DataKind::Ipv6Addr(*v),
@@ -240,7 +240,7 @@ impl_from!(NaiveDateTime, DataKind::DateTime);
 impl_from!(DateTime<Utc>, DataKind::Timestamp);
 
 // Special types
-impl_from!(Value, DataKind::Json);
+impl_from!(Value, |value: Value| DataKind::Json(Cow::Owned(value)));
 impl_from!(Uuid, DataKind::Uuid);
 impl_from!(IpAddr, DataKind::IpAddr);
 impl_from!(Ipv4Addr, DataKind::Ipv4Addr);

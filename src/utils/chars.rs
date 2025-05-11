@@ -1,6 +1,12 @@
 use std::fmt::Write;
 
-/// Replaces `?` placeholders in an SQL query with `$1`, `$2`, etc.
+/// Replaces `?` placeholders in SQL query with PostgreSQL-style numbered parameters ($1, $2, etc.)
+/// 
+/// # Arguments
+/// * `sql` - Original SQL string containing `?` placeholders
+/// 
+/// # Returns
+/// New SQL string with numbered parameters
 pub fn replace_placeholders(sql: &str) -> String {
     let mut result = String::with_capacity(sql.len());
     let mut count = 1;

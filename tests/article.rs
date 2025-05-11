@@ -4,26 +4,66 @@ use field_access::FieldAccess;
 use serde::{Deserialize, Serialize};
 #[cfg(any(feature = "mysql", feature = "sqlite", feature = "postgres"))]
 use sqlx::FromRow;
-//use chrono::{DateTime, Utc};
+use std::fmt::Debug;
 
+// Article
 #[cfg(any(feature = "mysql", feature = "sqlite", feature = "postgres"))]
 #[derive(Debug, Serialize, Deserialize, Default, FromRow, FieldAccess, Clone, PartialEq, Hash)]
+//#[serde(rename_all = "camelCase")]
 pub struct Article {
-    pub a_id: i32,
+    pub id: i32,
+    pub tenant_id: i32,
+    pub title: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub a_class: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub a_content: Option<String>,
+    pub content: Option<String>,
+    #[serde(default)]
+    pub views: i32,
+    #[serde(default)]
+    pub deleted: bool,
+    pub created_at: Option<chrono::NaiveDateTime>,
 }
 
 #[cfg(any(feature = "mysql", feature = "sqlite", feature = "postgres"))]
 impl Article {
     #[allow(dead_code)]
-    pub fn new(a_class: &str, a_content: &str, a_id: Option<i32>) -> Self {
+    pub fn new(
+        tenant_id: i32,
+        title: &str,
+        content: Option<String>,
+    ) -> Self {
         Article {
-            a_class: Some(a_class.to_string()),
-            a_content: Some(a_content.to_string()),
-            a_id: a_id.unwrap_or(0),
+            id: 0,
+            tenant_id,
+            title: title.to_string(),
+            content,
+            views: 0,
+            deleted: false,
+            created_at: chrono::Utc::now().naive_utc().into(),
+        }
+    }
+}
+
+#[cfg(any(feature = "mysql", feature = "sqlite", feature = "postgres"))]
+#[derive(Debug, Serialize, Deserialize, Default, FromRow, FieldAccess, Clone, PartialEq, Hash)]
+//#[serde(rename_all = "camelCase")]
+pub struct ArticleTag {
+    pub article_id: i32,
+    pub share_seq: i32,
+    pub tag: String,
+    pub created_at: Option<chrono::NaiveDateTime>,
+}
+
+#[cfg(any(feature = "mysql", feature = "sqlite", feature = "postgres"))]
+impl ArticleTag {
+    #[allow(dead_code)]
+    pub fn new(
+        tag: &str,
+    ) -> Self {
+        ArticleTag {
+            article_id: 0,
+            share_seq: 0,
+            tag: tag.to_string(),
+            created_at: None,
         }
     }
 }

@@ -2,11 +2,11 @@ use std::fmt::Debug;
 
 use crate::common::builder::{BuilderTrait, FilterTrait};
 
-use super::case_when::CW;
+use super::case_when::CaseWhen;
 use super::cte::WithCTE;
 use super::filter::Expr;
 use super::helper::{build_returning_clause, build_where_clause, combine_where_clause};
-use super::join::Join;
+use super::join::JoinType;
 
 // UPDATE-specific builder
 #[derive(Default, Debug, Clone)]
@@ -14,7 +14,7 @@ pub struct UpdateBuilder<T: Debug + Clone> {
     sql: String,
     values: Vec<T>,
     where_clauses: Vec<Expr<T>>,
-    joins: Vec<Join<T>>,
+    joins: Vec<JoinType<T>>,
 }
 
 impl<T: Debug + Clone> UpdateBuilder<T> {
@@ -54,6 +54,23 @@ impl<T: Debug + Clone> UpdateBuilder<T> {
         self
     }
 
+    pub fn set_expr(mut self, column: &str, expr_sql: &str) -> Self {
+        let mut capacity = column.len() + expr_sql.len() + 3; // "col = expr"
+        if !self.values.is_empty() {
+            capacity += 2; // for ", "
+        }
+        self.sql.reserve(capacity);
+    
+        if !self.values.is_empty() {
+            self.sql.push_str(", ");
+        }
+        self.sql.push_str(column);
+        self.sql.push_str(" = ");
+        self.sql.push_str(expr_sql);
+    
+        self
+    }
+
     /// Specifies the columns to be updated and their corresponding values.
     ///
     /// # Parameters
@@ -84,18 +101,6 @@ impl<T: Debug + Clone> UpdateBuilder<T> {
         self
     }
 
-    /// Adds a WHERE clause to the UPDATE statement.
-    /// 
-    /// # Parameters
-    /// - `filter`: WHERE clause to be added.
-    ///
-    /// # Returns
-    /// - `UpdateBuilder`: Updated UpdateBuilder instance.
-    pub fn where_(mut self, filter: Expr<T>) -> Self {
-        self.where_mut(filter);
-        self
-    }
-
     /// Adds an AND condition to the last WHERE clause.
     /// 
     /// # Parameters
@@ -103,8 +108,8 @@ impl<T: Debug + Clone> UpdateBuilder<T> {
     ///
     /// # Returns
     /// - `UpdateBuilder`: Updated UpdateBuilder instance.
-    pub fn and(mut self, filter: Expr<T>) -> Self {
-        self.and_mut(filter);
+    pub fn and_where(mut self, filter: Expr<T>) -> Self {
+        self.and_where_mut(filter);
         self
     }
 
@@ -115,19 +120,19 @@ impl<T: Debug + Clone> UpdateBuilder<T> {
     ///
     /// # Returns
     /// - `UpdateBuilder`: Updated UpdateBuilder instance.
-    pub fn or(mut self, filter: Expr<T>) -> Self {
-        self.or_mut(filter);
+    pub fn or_where(mut self, filter: Expr<T>) -> Self {
+        self.or_where_mut(filter);
         self
     }
 
     /// Adds a JOIN clause to the UPDATE statement.
-    pub fn join(mut self, join: Join<T>) -> Self {
-        self.joins.push(join);
+    pub fn join(mut self, join_clauses: JoinType<T>) -> Self {
+        self.joins.push(join_clauses);
         self
     }
 
     /// Adds a CASE WHEN clause to the UPDATE statement.
-    pub fn case_when(mut self, case_when: CW<T>) -> Self {
+    pub fn case_when(mut self, case_when: CaseWhen<T>) -> Self {
         let (case_when_sql, case_when_values) = case_when.build();
         self.sql.push_str(", ");
         self.sql.push_str(&case_when_sql);
@@ -139,21 +144,6 @@ impl<T: Debug + Clone> UpdateBuilder<T> {
     pub fn returning(mut self, columns: &[&str]) -> Self {
         self.sql.push_str(&build_returning_clause(columns));
         self
-    }
-    
-    /// Creates a new UpdateBuilder instance with the given SQL query and parameter values.
-    pub fn raw(sql: impl Into<String>, params: Option<Vec<T>>) -> Self {
-        let sql = sql.into();
-        let mut values = vec![];
-        if let Some(vals) = params {
-            values.extend(vals);
-        }
-        Self {
-            sql,
-            values,
-            where_clauses: vec![],
-            joins: vec![],
-        }        
     }
 
     /// Appends a new SQL query and parameter value to the existing query.
@@ -180,47 +170,32 @@ impl<T: Debug + Clone> UpdateBuilder<T> {
         self
     }
 
+    /// Returns a reference to the WHERE clauses.
+    pub fn take_where_clauses(self) -> Vec<Expr<T>> {
+        self.where_clauses
+    }
+
 }
 
 impl<T: Debug + Clone> FilterTrait<T> for UpdateBuilder<T> {
     type Expr = Expr<T>;
-
-    /// Adds a WHERE clause to the UPDATE statement.
-    /// 
-    /// # Parameters
-    /// - `filter`: WHERE clause to be added.
-    ///
-    /// # Returns
-    /// - `UpdateBuilder`: Updated UpdateBuilder instance.
-    fn where_mut(&mut self, filter: Expr<T>) -> &mut Self {
-        self.where_clauses.push(filter);
-        self
-    }
-
     /// Adds an AND condition to the last WHERE clause.
-    /// 
-    /// # Parameters
-    /// - `filter`: AND condition to be added.
-    ///
-    /// # Returns
-    /// - `UpdateBuilder`: Updated UpdateBuilder instance.
-    fn and_mut(&mut self, filter: Expr<T>) -> &mut Self {
-        combine_where_clause(&mut self.where_clauses, filter, false);
+    fn and_where_mut<F>(&mut self, filter: F) -> &mut Self
+    where
+        F: Into<Self::Expr>
+    {
+        combine_where_clause(&mut self.where_clauses, filter.into(), false);
         self
     }
 
     /// Adds an OR condition to the last WHERE clause.
-    /// 
-    /// # Parameters
-    /// - `filter`: OR condition to be added.
-    ///
-    /// # Returns
-    /// - `UpdateBuilder`: Updated UpdateBuilder instance.
-    fn or_mut(&mut self, filter: Expr<T>) -> &mut Self {
-        combine_where_clause(&mut self.where_clauses, filter, true);
+    fn or_where_mut<F>(&mut self, filter: F) -> &mut Self
+    where
+        F: Into<Self::Expr>
+    {
+        combine_where_clause(&mut self.where_clauses, filter.into(), true);
         self
     }
-    
 }
 
 impl<T: Debug + Clone> BuilderTrait<T> for UpdateBuilder<T> {    

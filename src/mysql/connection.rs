@@ -13,7 +13,7 @@ use crate::utils::db;
 static DB_POOL: OnceCell<Arc<MySqlPool>> = OnceCell::const_new();
 
 /// Initializes the database connection pool with custom settings.
-pub async fn init_db_pool_custom(pool: Pool<MySql>) -> Result<&'static MySqlPool, Error> {
+pub async fn setup_db_pool(pool: Pool<MySql>) -> Result<&'static MySqlPool, Error> {
     // Create the connection pool
     let pool = Arc::new(pool);
 
@@ -23,11 +23,11 @@ pub async fn init_db_pool_custom(pool: Pool<MySql>) -> Result<&'static MySqlPool
 }
 
 /// Initializes the database connection pool with a database URL.
-pub async fn init_db_pool(database_url: &str) -> Result<&'static MySqlPool, Error> {
+pub async fn create_db_pool(database_url: &str) -> Result<&'static MySqlPool, Error> {
     let (maxc, minc, warmupc) = db::connect_limits(Some(20));
 
     let connect_options = MySqlConnectOptions::from_str(database_url)
-        .map_err(|e| OperationError::db(format!("Failed to parse MySQL connection URL: {}", e)))?
+        .map_err(|e| Error::from(e))?
         .ssl_mode(MySqlSslMode::Disabled);
 
     let pool = PoolOptions::new()
@@ -39,11 +39,11 @@ pub async fn init_db_pool(database_url: &str) -> Result<&'static MySqlPool, Erro
         .test_before_acquire(true)
         .connect_with(connect_options)
         .await
-        .map_err(|e| OperationError::db(format!("Failed to initialize MySQL connection pool: {}", e)))?;
+        .map_err(|e| Error::from(e))?;
 
     let _ = warmup_connect(&pool, warmupc).await;
 
-    init_db_pool_custom(pool).await
+    setup_db_pool(pool).await
 }
 
 async fn warmup_connect(pool: &MySqlPool, warmup_num: u32) -> Result<(), Error> {
@@ -58,7 +58,5 @@ async fn warmup_connect(pool: &MySqlPool, warmup_num: u32) -> Result<(), Error> 
 pub fn get_db_pool() -> Result<Arc<MySqlPool>, Error> {
     DB_POOL.get()
         .cloned()
-        .ok_or_else(||{
-        OperationError::db("Database pool not initialized".to_string())
-    })
+        .ok_or_else(||OperationError::DBPoolNotInitialized.into())
 }

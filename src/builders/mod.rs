@@ -1,5 +1,6 @@
-pub(super) mod base;
-
+pub mod single;
 pub mod find;
-pub mod upset;
+pub mod upsert;
 pub mod remove;
+
+pub mod composite;

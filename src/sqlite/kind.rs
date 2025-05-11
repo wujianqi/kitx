@@ -8,10 +8,10 @@ use sqlx::types::Uuid;
 use sqlx::{Database, Encode, Sqlite, Type};
 use sqlx::sqlite::SqliteArgumentValue;
 
-use crate::utils::value::{unwrap_option, ValueConvert};
+use crate::utils::typpe_conversion::{unwrap_option, ValueConvert};
 
 /// Enum representing different types of database field values.
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug, Clone, PartialEq)]
 pub enum DataKind<'a> {
     /// Text type (string).
     Text(Cow<'a, str>), // SQLite: TEXT
@@ -35,7 +35,7 @@ pub enum DataKind<'a> {
     Bool(bool), // SQLite: BOOLEAN (internally stored as INTEGER)
 
     /// JSON type (unstructured JSON data).
-    Json(Value), // SQLite: TEXT (JSON stored as text)
+    Json(Cow<'a, Value>), // SQLite: TEXT (JSON stored as text)
 
     /// UUID type (stored as BLOB or TEXT).
     Uuid(Uuid), // SQLite: BLOB or TEXT
@@ -64,19 +64,20 @@ impl<'a> Encode<'a, Sqlite> for DataKind<'a> {
             DataKind::Time(time) => <String as Encode<'_, Sqlite>>::encode(time.format("%H:%M:%S%.f").to_string(), buf),
 
             // Binary types
-            DataKind::Blob(b) => <Vec<u8> as Encode<'_, Sqlite>>::encode(b.to_vec(), buf),
+            DataKind::Blob(arc) => <Vec<u8> as Encode<'_, Sqlite>>::encode(arc.as_ref().to_vec(), buf),
 
             // Boolean type
             DataKind::Bool(b) => <i64 as Encode<'_, Sqlite>>::encode(*b as i64, buf),
 
             // JSON type
-            DataKind::Json(json) => <String as Encode<'_, Sqlite>>::encode(serde_json::to_string(json)?, buf),
+            DataKind::Json(arc) => <String as Encode<'_, Sqlite>>::encode(serde_json::to_string(arc.as_ref())?, buf),
 
             // UUID type
             DataKind::Uuid(uuid) => <String as Encode<'_, Sqlite>>::encode(uuid.to_string(), buf),
         }
     }
 }
+
 
 impl<'a> Type<Sqlite> for DataKind<'a> {
     fn type_info() -> <Sqlite as Database>::TypeInfo {
@@ -100,7 +101,7 @@ impl<'a> ValueConvert<DataKind<'a>> for DataKind<'a> {
         }
 
         try_convert!(
-            String => |v: &String| DataKind::Text(Cow::Owned(v.into())),
+            String => |v: &String| DataKind::Text(Cow::Owned(v.clone())),
             &str => |v: &'a str| DataKind::Text(Cow::Borrowed(v)),
             i32 => |v: &i32| DataKind::Integer(*v as i64),            
             u32 => |v: &u32| DataKind::Integer(*v as i64),
@@ -115,7 +116,7 @@ impl<'a> ValueConvert<DataKind<'a>> for DataKind<'a> {
             NaiveTime => |v: &NaiveTime| DataKind::Time(*v),
             Vec<u8> => |v: &Vec<u8>| DataKind::Blob(Cow::Owned(v.clone())),
             &[u8] => |v: &&'a [u8]| DataKind::Blob(Cow::Borrowed(*v)),
-            Value => |v: &Value| DataKind::Json(v.clone()),
+            Value => |v: &Value| DataKind::Json(Cow::Owned(v.clone())),
             Uuid => |v: &Uuid| DataKind::Uuid(*v)
         );
     }
@@ -156,7 +157,7 @@ impl_from!(NaiveDate, DataKind::Date);
 impl_from!(NaiveTime, DataKind::Time);
 
 // JSON type
-impl_from!(Value, DataKind::Json);
+impl_from!(Value, |value: Value| DataKind::Json(Cow::Owned(value)));
 
 // UUID type
 impl_from!(Uuid, DataKind::Uuid);

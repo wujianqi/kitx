@@ -1,6 +1,6 @@
 pub(super) mod helper;
 
-pub mod base;
+pub mod query_builder;
 pub mod agg;
 pub mod join;
 pub mod filter;
@@ -10,4 +10,4 @@ pub mod select;
 pub mod insert;
 pub mod update;
 pub mod delete;
-pub mod params;
+pub mod bind_params;

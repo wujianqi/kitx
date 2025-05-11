@@ -4,7 +4,7 @@ use super::filter::Expr;
 
 /// CASE WHEN clause builder, used to create CASE WHEN conditions.
 #[derive(Debug, Clone)]
-pub struct CW<T: Debug + Clone> {
+pub struct CaseWhen<T: Debug + Clone> {
     /// Stores multiple CASE WHEN clauses.
     cases: Vec<(String, Vec<T>)>,
     /// Currently building CASE WHEN clause.
@@ -13,7 +13,7 @@ pub struct CW<T: Debug + Clone> {
     alias: Option<String>
 }
 
-impl<'a, T: Debug + Clone> CW<T> {
+impl<'a, T: Debug + Clone> CaseWhen<T> {
     /// Starts a new CASE WHEN clause or initializes a new WhenClause instance.
     ///
     /// If there is already a CASE WHEN clause being built, it is saved to `cases` and a new clause is started.
@@ -22,7 +22,7 @@ impl<'a, T: Debug + Clone> CW<T> {
     /// # Returns
     /// - `WhenClause`: Updated WhenClause instance.
     pub fn case() -> Self {
-        CW {
+        CaseWhen {
             cases: Vec::new(),
             current_case: Some((String::from("CASE"), Vec::new())),
             alias: None,
@@ -61,7 +61,7 @@ impl<'a, T: Debug + Clone> CW<T> {
     ///
     /// # Returns
     /// - `WhenClause`: Updated WhenClause instance.
-    pub fn else_result(mut self, result:  &str) -> Self {
+    pub fn otherwise(mut self, result:  &str) -> Self {
         if let Some((ref mut case_when_clause, _)) = self.current_case {
             case_when_clause.push_str(" ELSE ");
             case_when_clause.push_str(&result);

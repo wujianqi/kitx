@@ -1,20 +1,22 @@
-use std::fmt::Debug;
+use std::{collections::HashMap, fmt::Debug};
+use crate::common::types::OrderBy;
+
 use super::filter::Expr;
 
 // Helper method to build WHERE clause
 pub fn build_where_clause<T: Debug + Clone>(where_clauses: Vec<Expr<T>>) -> (String, Vec<T>) {
     if where_clauses.is_empty() {
-        return (String::new(), Vec::new());
+        return (String::with_capacity(128), Vec::new());
     }
 
     let mut final_sql = String::with_capacity(100);
     let mut values = Vec::new();
 
-    for (i, clause) in where_clauses.into_iter().enumerate() {
+    for (_, clause) in where_clauses.into_iter().enumerate() {
         let (clause_sql, clause_values) = clause.build();
-        if i > 0 {
+        /* if i > 0 {
             final_sql.push_str(" AND ");
-        }
+        } */
         final_sql.push_str(&clause_sql);
         values.extend(clause_values);
     }
@@ -38,20 +40,27 @@ pub fn combine_where_clause<T: Debug + Clone>(clauses: &mut Vec<Expr<T>>, filter
 }
 
 // Helper method to build ORDER BY clause
-pub fn build_order_by_clause(order_by: Vec<(String, bool)>) -> String {
+pub fn build_order_by_clause(order_by: &HashMap<String, OrderBy>) -> String {
     if order_by.is_empty() {
-        return String::new();
+        return String::with_capacity(64);
     }
-    let mut order_by_sql = String::new();
+
+    let mut order_by_sql = String::with_capacity(64 * order_by.len());
+    order_by_sql.push_str("ORDER BY ");
+
     for (i, (col, asc)) in order_by.into_iter().enumerate() {
         if i > 0 {
             order_by_sql.push_str(", ");
         }
-        order_by_sql.push_str(&col);
+        let direction = match asc {
+            OrderBy::Asc => "ASC",
+            OrderBy::Desc => "DESC",
+        };
+        order_by_sql.push_str(col);
         order_by_sql.push(' ');
-        order_by_sql.push_str(if asc { "ASC" } else { "DESC" });
+        order_by_sql.push_str(direction);
     }
-    order_by_sql.insert_str(0, "ORDER BY ");
+
     order_by_sql
 }
 

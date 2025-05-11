@@ -30,24 +30,12 @@ impl<T: Debug + Clone> DeleteBuilder<T> {
         }
     }
     
-    /// Adds a WHERE clause to the DELETE statement.
-    /// 
-    /// # Parameters
-    /// - `filter`: WHERE clause expression.
-    /// 
-    /// # Returns
-    /// - `DeleteBuilder`: Updated DeleteBuilder instance.
-    pub fn where_(mut self, filter: Expr<T>) -> Self {
-        self.where_mut(filter);
-        self
-    }
-
     /// Adds an AND condition to the last WHERE clause.
     /// 
     /// # Parameters
     /// - `filter`: AND condition expression.
-    pub fn and(mut self, filter: Expr<T>) -> Self {
-        self.and_mut(filter);
+    pub fn and_where(mut self, filter: Expr<T>) -> Self {
+        self.and_where_mut(filter);
         self
     }
 
@@ -55,8 +43,8 @@ impl<T: Debug + Clone> DeleteBuilder<T> {
     /// 
     /// # Parameters
     /// - `filter`: OR condition expression.
-    pub fn or(mut self, filter: Expr<T>) -> Self {
-        self.or_mut(filter);
+    pub fn or_where(mut self, filter: Expr<T>) -> Self {
+        self.or_where_mut(filter);
         self
     }
 
@@ -66,28 +54,32 @@ impl<T: Debug + Clone> DeleteBuilder<T> {
         self.sql.push_str(&build_returning_clause(columns));
         self
     }
+
+    /// Returns a reference to the WHERE clauses.
+    pub fn take_where_clauses(self) -> Vec<Expr<T>> {
+        self.where_clauses
+    }
 }
 
 impl<T: Debug + Clone> FilterTrait<T> for DeleteBuilder<T> {
     type Expr = Expr<T>;
-
-    fn where_mut(&mut self, filter: Expr<T>) -> &mut Self {
-        self.where_clauses.push(filter);
+    /// Adds an AND condition to the last WHERE clause.
+    fn and_where_mut<F>(&mut self, filter: F) -> &mut Self
+    where
+        F: Into<Self::Expr>
+    {
+        combine_where_clause(&mut self.where_clauses, filter.into(), false);
         self
     }
 
-
-    fn and_mut(&mut self, filter: Expr<T>) -> &mut Self {
-        combine_where_clause(&mut self.where_clauses, filter, false);
+    /// Adds an OR condition to the last WHERE clause.
+    fn or_where_mut<F>(&mut self, filter: F) -> &mut Self
+    where
+        F: Into<Self::Expr>
+    {
+        combine_where_clause(&mut self.where_clauses, filter.into(), true);
         self
     }
-
-
-    fn or_mut(&mut self, filter: Expr<T>) -> &mut Self {
-        combine_where_clause(&mut self.where_clauses, filter, true);
-        self
-    }
-    
 }
 
 impl<T: Debug + Clone> BuilderTrait<T> for DeleteBuilder<T> {

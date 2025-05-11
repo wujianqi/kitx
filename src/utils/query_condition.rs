@@ -19,6 +19,10 @@ impl<'a, Q, F> QueryCondition<'a, Q, F>
 where
     F: Fn(&mut Q) + Send + Sync + 'a,
 {
+    /// Creates a new query condition wrapper
+    /// 
+    /// # Arguments
+    /// * `query_fn` - Closure defining query conditions
     pub fn new(query_fn: F) -> Self {
         QueryCondition {
             condition: Arc::new(query_fn),
@@ -29,5 +33,25 @@ where
     pub fn get(&self) -> impl Fn(&mut Q) + Send + Sync + 'a {
         let arc_condition = self.condition.clone();
         move |q| arc_condition(q)
+    }
+}
+
+pub struct Shared<Q>(Arc<Q>);
+
+impl<Q> Shared<Q> {
+    pub fn new(query: Q) -> Self {
+        Self(Arc::new(query))
+    }
+
+    pub fn share(&self) -> Arc<Q> {
+        Arc::clone(&self.0)
+    }
+
+    pub fn clone(&self) -> Self {
+        Self(Arc::clone(&self.0))
+    }
+
+    pub fn inner(self) -> Arc<Q> {
+        self.0
     }
 }

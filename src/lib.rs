@@ -13,3 +13,6 @@ pub mod mysql;
 
 #[cfg(feature = "postgres")]
 pub mod postgres;
+
+#[cfg(any(feature = "mysql", feature = "sqlite", feature = "postgres"))]
+pub mod prelude;

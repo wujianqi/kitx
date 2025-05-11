@@ -1,21 +1,21 @@
-use std::fmt::Debug;
+use std::{fmt::Debug, mem::take};
 use super::filter::Expr;
 
 #[derive(Debug, Clone, Default)]
-pub struct Agg<T: Debug + Clone> {
+pub struct Func<T: Debug + Clone> {
     aggregates: Vec<(String, String, String)>, // (function, column, alias)
     group_by_columns: Vec<String>,
     having_conditions: Vec<Expr<T>>, // Store HAVING conditions and bound values
 }
 
-impl<T: Debug + Clone> Agg<T> {
+impl<T: Debug + Clone> Func<T> {
     /// Adds a COUNT aggregation function
     /// # Parameters
     /// - `column`: Column to count
     /// - `alias`: Alias for the count result
     ///
     /// # Returns
-    /// - `Agg`: Updated Agg instance.
+    /// - `Func`: Updated Agg instance.
     pub fn count(mut self, column: &str, alias: &str) -> Self {
         self.aggregates.push(("COUNT".into(), column.into(), alias.into()));
         self
@@ -27,7 +27,7 @@ impl<T: Debug + Clone> Agg<T> {
     /// - `alias`: Alias for the sum result
     ///
     /// # Returns
-    /// - `Agg`: Updated Agg instance.
+    /// - `Func`: Updated Agg instance.
     pub fn sum(mut self, column: &str, alias: &str) -> Self {
         self.aggregates.push(("SUM".into(), column.into(), alias.into()));
         self
@@ -39,7 +39,7 @@ impl<T: Debug + Clone> Agg<T> {
     /// - `alias`: Alias for the average result
     ///
     /// # Returns
-    /// - `Agg`: Updated Agg instance.
+    /// - `Func`: Updated Agg instance.
     pub fn avg(mut self, column: &str, alias: &str) -> Self {
         self.aggregates.push(("AVG".into(), column.into(), alias.into()));
         self
@@ -51,7 +51,7 @@ impl<T: Debug + Clone> Agg<T> {
     /// - `alias`: Alias for the minimum value
     ///
     /// # Returns
-    /// - `Agg`: Updated Agg instance.
+    /// - `Func`: Updated Agg instance.
     pub fn min(mut self, column: &str, alias: &str) -> Self {
         self.aggregates.push(("MIN".into(), column.into(), alias.into()));
         self
@@ -63,7 +63,7 @@ impl<T: Debug + Clone> Agg<T> {
     /// - `alias`: Alias for the maximum value
     ///
     /// # Returns
-    /// - `Agg`: Updated Agg instance.
+    /// - `Func`: Updated Agg instance.
     pub fn max(mut self, column: &str, alias: &str) -> Self {
         self.aggregates.push(("MAX".into(), column.into(), alias.into()));
         self
@@ -89,9 +89,12 @@ impl<T: Debug + Clone> Agg<T> {
     }
 
     /// Adds an AND condition to the existing having
-    pub fn and(mut self, condition: Expr<T>) -> Self {
+    pub fn and(mut self, condition: Expr<T>) -> Self 
+    where 
+        T: Default
+    {
         if let Some(existing_filter) = self.having_conditions.last_mut() {
-            *existing_filter = existing_filter.clone().and(condition);
+            *existing_filter = take(existing_filter).and(condition);
         } else {
             self.having_conditions.push(condition);
         }
@@ -99,9 +102,12 @@ impl<T: Debug + Clone> Agg<T> {
     }
 
     /// Adds an OR condition to the existing filter
-    pub fn or(mut self, condition: Expr<T>) -> Self {
+    pub fn or(mut self, condition: Expr<T>) -> Self 
+    where 
+        T: Default
+    {
         if let Some(existing_filter) = self.having_conditions.last_mut() {
-            *existing_filter = existing_filter.clone().or(condition);
+            *existing_filter = take(existing_filter).or(condition);
         } else {
             self.having_conditions.push(condition);
         }
@@ -110,18 +116,22 @@ impl<T: Debug + Clone> Agg<T> {
 
     /// Builds the SQL for the aggregation functions
     pub fn build_aggregates(&self) -> String {
-        let mut sql = String::with_capacity(128);
+        let mut sqls = Vec::new();
         // Add aggregation functions
         for (func, column, alias) in &self.aggregates {
-            sql.push_str(", ");
-            sql.push_str(func);
-            sql.push('(');
-            sql.push_str(column);
-            sql.push(')');
-            sql.push_str(" AS ");
-            sql.push_str(alias);
+            let mut strs = String::with_capacity(30);
+            strs.push_str(func);
+            strs.push('(');
+            strs.push_str(column);
+            strs.push(')');
+
+            if !alias.is_empty() {
+                strs.push_str(" AS ");
+                strs.push_str(alias);
+            }
+            sqls.push(strs);
         }
-        sql
+        sqls.join(", ")
     }
 
     /// Builds the SQL for the GROUP BY and HAVING clauses

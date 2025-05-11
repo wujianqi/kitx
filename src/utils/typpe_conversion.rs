@@ -44,6 +44,13 @@ pub fn is_empty_or_none(value: &dyn Any) -> bool {
     check_type!(Vec<u8>, |b: &Vec<u8>| b.is_empty());
     check_type!(&[u8], |b: &&[u8]| b.is_empty());
 
+    is_none(value)
+}
+
+/// Helper function to check if a value is None using a closure
+/// It can handle `Option<Option<T>>`, `Option<T>`, and T types.
+/// It returns true if the value is None, otherwise it returns false.
+pub fn is_none(value: &dyn Any) -> bool {
     if let Some(opt) = value.downcast_ref::<Option<()>>() {
         return opt.is_none();
     }

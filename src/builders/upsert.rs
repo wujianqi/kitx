@@ -1,32 +1,39 @@
 use std::fmt::Debug;
 
 use field_access::FieldAccess;
-use sqlx::{Database, FromRow};
+use sqlx::{Database, Error, FromRow};
 
 use crate::{
     common::error::OperationError, 
     sql::{filter::Expr, insert::InsertBuilder, update::UpdateBuilder}, 
-    utils::value::{is_empty_or_none, ValueConvert}
+    utils::typpe_conversion::{is_none, ValueConvert}
 };
 
-use super::base::TableQueryBuilder;
+use super::single::SingleKeyTable;
 
-impl<'a, T, D, DB, VC> TableQueryBuilder<'a, T, D, DB, VC>
+impl<'a, T, D, DB, VC> SingleKeyTable<'a, T, D, DB, VC>
 where
     T: for<'r> FromRow<'r, DB::Row> + FieldAccess + Unpin + Send + Sync + Default,
     D: Clone + Debug + Send + Sync + 'a,
     DB: Database,
     VC: ValueConvert<D>,
 {
+    fn get_primary_key_value(&self, entity: &T) -> Result<D, Error> {
+        entity.fields()
+            .find(|(name, _)| *name == self.primary.0)
+            .map(|(_, field)| VC::convert(field.as_any()))
+            .ok_or_else(|| OperationError::PrimaryKeyNotFound(self.primary.0.to_string()).into())
+    }
+
     // Insert operations
-    pub fn insert_one(&self, entity: T) -> Result<InsertBuilder<D>, OperationError> {
+    pub fn insert_one(&self, entity: T) -> Result<InsertBuilder<D>, Error> {
         let mut cols_names = Vec::new();
         let mut cols_values = Vec::new();
 
         for (name, field) in entity.fields() {
-            if name != self.primary_key.0 || !self.primary_key.1 {
-                if is_empty_or_none(field.as_any()) {
-                    return Err(OperationError::new(format!("Field {} has an invalid value", name)));
+            if name != self.primary.0 || !self.primary.1 {
+                if is_none(field.as_any()) {
+                    return Err(OperationError::ValueInvalid(name.to_string()).into());
                 }
                 cols_names.push(name);
                 let value = VC::convert(field.as_any());
@@ -35,7 +42,7 @@ where
         }
 
         if cols_names.is_empty() {
-            return Err(OperationError::new("No valid fields provided for insertion".to_string()));
+            return Err(OperationError::ColumnsListEmpty.into());
         }
 
         Ok(InsertBuilder::into(self.table_name)
@@ -43,9 +50,9 @@ where
             .values(vec![cols_values]))
     }
 
-    pub fn insert_many(&self, entities: Vec<T>) -> Result<InsertBuilder<D>, OperationError> {
+    pub fn insert_many(&self, entities: Vec<T>) -> Result<InsertBuilder<D>, Error> {
         if entities.is_empty() {
-            return Err(OperationError::new("No entities provided for insert operation".to_string()));
+            return Err(OperationError::NoEntitiesProvided.into());
         }
 
         let mut cols_names = Vec::new();
@@ -54,7 +61,7 @@ where
         for entity in entities {
             let mut cols_values = Vec::new();
             for (name, field) in entity.fields() {
-                if name != self.primary_key.0 || !self.primary_key.1 {
+                if name != self.primary.0 || !self.primary.1 {
                     if cols_names.is_empty() {
                         cols_names.push(name);
                     }
@@ -72,14 +79,15 @@ where
 
     
     // Update operations
-    pub fn update_by_key(&self, entity: T) -> Result<UpdateBuilder<D>, OperationError> {
+    pub fn update_by_key(&self, entity: T) -> Result<UpdateBuilder<D>, Error> {
         let mut cols_names = Vec::new();
         let mut cols_values = Vec::new();
+        let pk_name = self.primary.0;
 
         for (name, field) in entity.fields() {
-            if name != self.primary_key.0 {
-                if is_empty_or_none(field.as_any()) {
-                    return Err(OperationError::new(format!("Field {} has an invalid value", name)));
+            if name != pk_name {
+                if is_none(field.as_any()) {
+                    return Err(OperationError::ValueInvalid(name.to_string()).into());
                 }
                 cols_names.push(name);
                 let value = VC::convert(field.as_any());
@@ -88,42 +96,61 @@ where
         }
 
         if cols_names.is_empty() {
-            return Err(OperationError::new("No updatable fields provided".to_string()));
+            return Err(OperationError::ColumnsListEmpty.into());
         }
 
-        let primary_key_value = entity.fields()
-            .find(|(name, _)| *name == self.primary_key.0)
-            .map(|(_, field)| VC::convert(field.as_any()))
-            .ok_or_else(|| OperationError::new(format!("Primary key {} not found", self.primary_key.0)))?;
+        let primary_key_value = self.get_primary_key_value(&entity)?;
 
         Ok(UpdateBuilder::table(self.table_name)
             .set_cols(&cols_names, cols_values)
-            .where_(Expr::col(self.primary_key.0).eq(primary_key_value)))
+            .and_where(Expr::col(pk_name).eq(primary_key_value)))
     }
 
-    pub fn update_one<F>(&self, entity: T, query_condition: F) -> Result<UpdateBuilder<D>, OperationError>
+    pub fn update_by_expr<F>(
+        &self,
+        columns: &[(&str, &str)],
+        condition: F,
+    ) -> Result<UpdateBuilder<D>, Error>
     where
         F: Fn(&mut UpdateBuilder<D>) + Send + 'a,
     {
+        if columns.is_empty() {
+            return Err(OperationError::ColumnsListEmpty.into());
+        }
+    
+        let mut builder = UpdateBuilder::table(self.table_name);
+    
+        for (col, expr) in columns {
+            builder = builder.set_expr(col, expr);
+        }
+    
+        condition(&mut builder);
+    
+        Ok(builder)
+    }
+
+
+    pub fn update_one<F>(&self, entity: T, query_condition: F) -> Result<UpdateBuilder<D>, Error>
+    where
+        F: Fn(&mut UpdateBuilder<D>) + Send + 'a,
+    {
+        let pk_name  = self.primary.0;
         let mut cols_names = Vec::new();
         let mut cols_values = Vec::new();
 
         for (name, field) in entity.fields() {
-            if name != self.primary_key.0 {
+            if name != pk_name {
                 let value = VC::convert(field.as_any());
                 cols_names.push(name);
                 cols_values.push(value);
             }
         }
 
-        let primary_key_value = entity.fields()
-            .find(|(name, _)| *name == self.primary_key.0)
-            .map(|(_, field)| VC::convert(field.as_any()))
-            .ok_or_else(|| OperationError::new("Primary key not found in entity".to_string()))?;
+        let primary_key_value = self.get_primary_key_value(&entity)?;
 
         let mut builder = UpdateBuilder::table(self.table_name)
             .set_cols(&cols_names, cols_values)
-            .where_(Expr::col(self.primary_key.0).eq(primary_key_value));
+            .and_where(Expr::col(pk_name).eq(primary_key_value));
 
         query_condition(&mut builder);
 
@@ -131,10 +158,10 @@ where
     }
 
     // Upsert operations
-    pub fn upsert_one(&self, entity: T) -> Result<InsertBuilder<D>, OperationError> {
+    pub fn upsert_one(&self, entity: T) -> Result<InsertBuilder<D>, Error> {
+        let pk_name = self.primary.0;
         let mut cols_names = Vec::new();
         let mut cols_values = Vec::new();
-        let conflict_target = self.primary_key.0;
 
         for (name, field) in entity.fields() {
             if !cols_names.contains(&name) {
@@ -143,26 +170,26 @@ where
 
             let value = VC::convert(field.as_any());
             cols_values.push(value);
-        } 
+        }
 
         Ok(InsertBuilder::into(self.table_name)
             .columns(&cols_names)
             .values(vec![cols_values])
-            .on_conflict_do_update(conflict_target, &cols_names))
+            .on_conflict_do_update(pk_name, &cols_names))
     }
 
-    pub fn upsert_many(&self, entities: Vec<T>) -> Result<InsertBuilder<D>, OperationError> {
+    pub fn upsert_many(&self, entities: Vec<T>) -> Result<InsertBuilder<D>, Error> {
         if entities.is_empty() {
-            return Err(OperationError::new("No entities provided for upsert operation".to_string()));
+            return Err(OperationError::NoEntitiesProvided.into());
         }
-    
+
+        let pk_name = self.primary.0;
         let mut cols_names = Vec::new();
         let mut all_cols_values = Vec::new();
-        let conflict_target = self.primary_key.0;
 
         for (i, entity) in entities.iter().enumerate() {
             let mut cols_values = Vec::new();
-    
+
             for (name, field) in entity.fields() {
                 if i == 0 && !cols_names.contains(&name) {
                     cols_names.push(name);
@@ -170,22 +197,17 @@ where
 
                 let value = VC::convert(field.as_any());
                 cols_values.push(value);
-            }            
-    
+            }
+
             all_cols_values.push(cols_values);
         }
 
-        let mut builder: InsertBuilder<D> = InsertBuilder::into(self.table_name)
+        let builder: InsertBuilder<D> = InsertBuilder::into(self.table_name)
             .columns(&cols_names)
             .values(all_cols_values)
-            .on_conflict_do_update(conflict_target, &cols_names);
-    
-        if self.primary_key.1 {
-            builder = builder.returning(&[self.primary_key.0]);
-        }
+            .on_conflict_do_update(pk_name, &cols_names);
 
         Ok(builder)
     }
-
 
 }

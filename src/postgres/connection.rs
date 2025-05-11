@@ -12,7 +12,7 @@ use crate::utils::db;
 static DB_POOL: OnceCell<Arc<PgPool>> = OnceCell::const_new();
 
 /// Initialize PostgreSQL database connection pool with custom configuration
-pub async fn init_db_pool_custom(pool: PgPool) -> Result<&'static PgPool, Error> {
+pub async fn setup_db_pool(pool: PgPool) -> Result<&'static PgPool, Error> {
     // Wrap the connection pool in an Arc and initialize OnceCell
     let pool = Arc::new(pool);
     DB_POOL.get_or_try_init(|| async { Ok(pool) })
@@ -21,11 +21,11 @@ pub async fn init_db_pool_custom(pool: PgPool) -> Result<&'static PgPool, Error>
 }
 
 /// Initialize PostgreSQL database connection pool using a database URL
-pub async fn init_db_pool(database_url: &str) -> Result<&'static PgPool, Error> {
+pub async fn create_db_pool(database_url: &str) -> Result<&'static PgPool, Error> {
     let (maxc, minc, warmupc) = db::connect_limits(Some(20));
 
     let connect_options = PgConnectOptions::from_str(database_url)
-        .map_err(|e| OperationError::db(format!("Failed to parse PostgreSQL connection URL: {}", e)))?
+        .map_err(|e| Error::from(e))?
         .ssl_mode(PgSslMode::Disable);
 
     let pool = PgPoolOptions::new()
@@ -37,11 +37,11 @@ pub async fn init_db_pool(database_url: &str) -> Result<&'static PgPool, Error> 
         .test_before_acquire(true)
         .connect_with(connect_options)
         .await
-        .map_err(|e| OperationError::db(format!("Failed to initialize PostgreSQL connection pool: {}", e)))?;
+        .map_err(|e| Error::from(e))?;
 
     let _ = warmup_connect(&pool, warmupc).await;
 
-    init_db_pool_custom(pool).await
+    setup_db_pool(pool).await
 }
 
 async fn warmup_connect(pool: &PgPool, warmup_num: u32) -> Result<(), Error> {
@@ -56,7 +56,5 @@ async fn warmup_connect(pool: &PgPool, warmup_num: u32) -> Result<(), Error> {
 pub fn get_db_pool() -> Result<Arc<PgPool>, Error> {
     DB_POOL.get()
         .cloned()
-        .ok_or_else(||{
-        OperationError::db("PostgreSQL database pool not initialized".to_string())
-    })
+        .ok_or_else(|| OperationError::DBPoolNotInitialized.into())
 }

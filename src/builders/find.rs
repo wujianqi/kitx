@@ -1,17 +1,18 @@
 use std::fmt::Debug;
 use field_access::FieldAccess;
-use sqlx::{Database, FromRow};
+use sqlx::{Database, Error, FromRow};
 
 use crate::common::error::OperationError;
-use crate::utils::value::ValueConvert;
+use crate::sql::agg::Func;
+use crate::utils::typpe_conversion::ValueConvert;
 use crate::sql::{
     filter::Expr,
     select::SelectBuilder,
 };
 
-use super::base::TableQueryBuilder;
+use super::single::SingleKeyTable;
 
-impl<'a, T, D, DB, VC> TableQueryBuilder<'a, T, D, DB, VC>
+impl<'a, T, D, DB, VC> SingleKeyTable<'a, T, D, DB, VC>
 where
     T: for<'r> FromRow<'r, DB::Row> + FieldAccess + Unpin + Send + Sync + Default,
     D: Clone + Debug + Send + Sync + From<u64>  + From<bool> + 'a,
@@ -26,8 +27,22 @@ where
         SelectBuilder::columns(&column_names).from(self.table_name)
     }
 
-    // Query operations
-    pub fn get_list<F>(&self, query_condition: F) -> SelectBuilder<D>
+    pub fn get_one_by_key(&self, id: impl Into<D> + Send) -> Result<SelectBuilder<D>, Error> 
+    where 
+        D: Default + PartialEq,
+    {
+        let key = id.into();
+        if key == D::default() {
+            return Err(OperationError::NoPrimaryKeyDefined.into());
+        }
+
+        let mut builder = self.select_builder()
+            .and_where(Expr::col(self.primary.0).eq(key));
+        self.apply_global_filters(&mut builder);
+        Ok(builder)
+    }
+
+    pub fn get_one<F>(&self, query_condition: F) -> SelectBuilder<D>
     where
         F: Fn(&mut SelectBuilder<D>) + 'a,
     {
@@ -37,15 +52,9 @@ where
         builder
     }
 
-    pub fn get_by_key(&self, id: impl Into<D> + Send) -> SelectBuilder<D> {
-        let id = id.into();
-        let mut builder = self.select_builder()
-            .where_(Expr::col(self.primary_key.0).eq(id));
-        self.apply_global_filters(&mut builder);
-        builder
-    }
 
-    pub fn get_one<F>(&self, query_condition: F) -> SelectBuilder<D>
+    // Query operations
+    pub fn get_list<F>(&self, query_condition: F) -> SelectBuilder<D>
     where
         F: Fn(&mut SelectBuilder<D>) + 'a,
     {
@@ -60,14 +69,12 @@ where
         page_number: u64,
         page_size: u64,
         query_condition: F,
-    ) -> Result<SelectBuilder<D>, OperationError>
+    ) -> Result<SelectBuilder<D>, Error>
     where
         F: Fn(&mut SelectBuilder<D>) + 'a,
     {
         if page_number == 0 || page_size == 0 {
-            return Err(OperationError::new(
-                "Page number and page size must be greater than 0".to_string(),
-            ));
+            return Err(OperationError::PageNumberInvalid.into());
         }
 
         let offset = (page_number - 1) * page_size;
@@ -84,12 +91,12 @@ where
         &self,
         limit: u64,
         query_condition: F,
-    ) -> Result<SelectBuilder<D>, OperationError>
+    ) -> Result<SelectBuilder<D>, Error>
     where
         F: Fn(&mut SelectBuilder<D>) + 'a,
     {
         if limit == 0 {
-            return Err(OperationError::new("Limit must be greater than 0".to_string()));
+            return Err(OperationError::LimitInvalid.into());
         }
 
         let mut builder = self.select_builder()
@@ -101,7 +108,7 @@ where
         Ok(builder)
     }
 
-    pub fn exist<F>(&self, query_condition: F) -> SelectBuilder<D>
+    pub fn exists<F>(&self, query_condition: F) -> SelectBuilder<D>
     where
         F: Fn(&mut SelectBuilder<D>) + 'a,
     {
@@ -114,13 +121,13 @@ where
     pub fn count<F>(&self, query_condition: F) -> SelectBuilder<D>
     where
         F: Fn(&mut SelectBuilder<D>) + 'a,
+        D: Default,
     {
-        let mut column_name = String::with_capacity(20);
-        column_name.push_str("COUNT(");
-        column_name.push_str(self.primary_key.0);
-        column_name.push_str(")");
+        let agg = Func::default().count(&self.primary.0, "");
+        let mut builder = SelectBuilder::columns(&[])
+            .aggregate(agg)
+            .from(self.table_name);
 
-        let mut builder = SelectBuilder::columns(&[&column_name]).from(self.table_name);
         self.apply_global_filters(&mut builder);
         query_condition(&mut builder);
         builder
