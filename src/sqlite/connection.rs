@@ -6,7 +6,7 @@ use std::sync::Arc;
 use tokio::sync::OnceCell;
 use std::time::Duration;
 
-use crate::common::error::OperationError;
+use crate::common::error::QueryError;
 use crate::utils::db;
 
 // Global static variable to store the database connection pool
@@ -50,5 +50,5 @@ pub async fn create_db_pool(database_url: &str) -> Result<&SqlitePool, Error> {
 pub fn get_db_pool() -> Result<Arc<SqlitePool>, Error> {
     DB_POOL.get()
         .cloned() // Clone the Arc to return a new reference
-        .ok_or_else(||OperationError::DBPoolNotInitialized.into())
+        .ok_or_else(||QueryError::DBPoolNotInitialized.into())
 }

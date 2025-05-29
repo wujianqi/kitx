@@ -1,4 +1,5 @@
-use std::{error::Error, fmt};
+use std::fmt::{Display, Formatter, Result, Debug};
+use std::error::Error;
 #[cfg(any(feature = "mysql", feature = "sqlite", feature = "postgres"))]
 use sqlx::error::{DatabaseError, ErrorKind};
 #[cfg(any(feature = "mysql", feature = "sqlite", feature = "postgres"))]
@@ -11,16 +12,12 @@ pub struct KitxError {
 
 #[cfg(any(feature = "mysql", feature = "sqlite", feature = "postgres"))]
 #[derive(Debug)]
-pub enum OperationError {
+pub enum QueryError {
     DBPoolNotInitialized,
     NoPrimaryKeyDefined,
     PageNumberInvalid,
     LimitInvalid,
-    NoTableNameDefined,
-    SoftDeleteConfigNotSet,
-    SoftDeleteColumnTypeInvalid,
-    KeysListEmpty,
-    RestoreOperationNotSupported,
+    KeysListEmpty,    
     ColumnsListEmpty,
     NoEntitiesProvided,
     ValueInvalid(String),
@@ -30,31 +27,66 @@ pub enum OperationError {
 }
 
 #[cfg(any(feature = "mysql", feature = "sqlite", feature = "postgres"))]
-impl OperationError {
+#[derive(Debug)]
+pub enum SoftDeleteError {
+    NoTableNameDefined,
+    SoftDeleteConfigNotSet,
+    SoftDeleteColumnTypeInvalid,
+    RestoreOperationNotSupported,
+}
+
+#[cfg(any(feature = "mysql", feature = "sqlite", feature = "postgres"))]
+#[derive(Debug)]
+pub enum RelationError {
+    ValueEmpty(usize),
+    ValueMismatch(usize, String, String),
+}
+
+#[cfg(any(feature = "mysql", feature = "sqlite", feature = "postgres"))]
+impl QueryError {
     pub fn message(&self) -> String {
         match self {
-            OperationError::DBPoolNotInitialized => "Database pool not initialized".to_string(),
-            OperationError::NoPrimaryKeyDefined => "No primary key defined".to_string(),
-            
-            OperationError::PageNumberInvalid => "Page number and page size must be greater than 0".to_string(),
-            OperationError::LimitInvalid => "Limit must be greater than 0".to_string(),
-            OperationError::NoTableNameDefined => "Table is excluded from soft delete".to_string(),
-            OperationError::SoftDeleteConfigNotSet => "Soft delete configuration not found".to_string(),
-            OperationError::SoftDeleteColumnTypeInvalid=> "Soft delete column type must be boolean".to_string(),
-            OperationError::KeysListEmpty => "Keys list cannot be empty".to_string(),
-            OperationError::RestoreOperationNotSupported => "Restore operation not supported without soft delete configuration or valid primary key".to_string(),
-            OperationError::ValueInvalid(column_name) => format!("Field {} has an invalid value", column_name),
-            OperationError::ColumnsListEmpty => "No valid fields provided".to_string(),
-            OperationError::NoEntitiesProvided => "No entities provided".to_string(),
-            OperationError::PrimaryKeyNotFound(key_name) => format!("Primary key {} not found", key_name),
-            OperationError::NoValuesProvided => "No values provided".to_string(),
-            OperationError::Other(msg) => msg.to_owned(),
+            Self::DBPoolNotInitialized => "Database pool not initialized".to_string(),
+            Self::NoPrimaryKeyDefined => "No primary key defined".to_string(),            
+            Self::PageNumberInvalid => "Page number and page size must be greater than 0".to_string(),
+            Self::LimitInvalid => "Limit must be greater than 0".to_string(),
+            Self::KeysListEmpty => "Keys list cannot be empty".to_string(),
+            Self::ValueInvalid(column_name) => format!("Field {} has an invalid value", column_name),
+            Self::ColumnsListEmpty => "No valid fields provided".to_string(),
+            Self::NoEntitiesProvided => "No entities provided".to_string(),
+            Self::PrimaryKeyNotFound(key_name) => format!("Primary key {} not found", key_name),
+            Self::NoValuesProvided => "No values provided".to_string(),
+            Self::Other(msg) => msg.to_owned(),
         }
     }
 }
 
-impl fmt::Display for KitxError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+
+#[cfg(any(feature = "mysql", feature = "sqlite", feature = "postgres"))]
+impl SoftDeleteError {
+    pub fn message(&self) -> String {
+        match self {
+            Self::NoTableNameDefined => "Table is excluded from soft delete".to_string(),
+            Self::SoftDeleteConfigNotSet => "Soft delete configuration not found".to_string(),
+            Self::SoftDeleteColumnTypeInvalid=> "Soft delete column type must be boolean".to_string(),
+            Self::RestoreOperationNotSupported => "Restore operation not supported without soft delete configuration or valid primary key".to_string(),
+        }
+    }
+}
+
+#[cfg(any(feature = "mysql", feature = "sqlite", feature = "postgres"))]
+impl RelationError {
+    pub fn message(&self) -> String {
+        match self {
+            Self::ValueEmpty(size) => format!("Expected non-empty values, got {}", size),
+            Self::ValueMismatch(index, expected, actual) => 
+                format!("Value mismatch: index {}, expected {}, got {}", index, expected, actual),
+        }
+    }
+}
+
+impl Display for KitxError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         write!(f, "{:?}", self.message)
     }
 }
@@ -72,11 +104,24 @@ impl KitxError {
 }
 
 #[cfg(any(feature = "mysql", feature = "sqlite", feature = "postgres"))]
-impl From<OperationError> for SqlxError {
-    fn from(err: OperationError) -> Self {
+impl From<QueryError> for SqlxError {
+    fn from(err: QueryError) -> Self {
         SqlxError::Database(Box::new(KitxError {  message: err.message() }))
     }
 }
+#[cfg(any(feature = "mysql", feature = "sqlite", feature = "postgres"))]
+impl From<SoftDeleteError> for SqlxError {
+    fn from(err: SoftDeleteError) -> Self {
+        SqlxError::Database(Box::new(KitxError {  message: err.message() }))
+    }
+}
+#[cfg(any(feature = "mysql", feature = "sqlite", feature = "postgres"))]
+impl From<RelationError> for SqlxError {
+    fn from(err: RelationError) -> Self {
+        SqlxError::Database(Box::new(KitxError { message: err.message() }))
+    }
+}
+
 
 #[cfg(any(feature = "mysql", feature = "sqlite", feature = "postgres"))]
 impl DatabaseError for KitxError {

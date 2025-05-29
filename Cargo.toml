@@ -26,8 +26,8 @@ ipnetwork = "0.21.1"
 mac_address = "1.1.8"
 
 [features]
-# default = []
-default = ["sqlite", "mysql", "postgres"]
+default = []
+# default = ["sqlite", "mysql", "postgres"]
 sqlite = [
     "sqlx/sqlite", "sqlx/chrono", "sqlx/json", "sqlx/uuid",
     "sqlx", "num_cpus", "chrono", "tokio", "serde", "serde_json", "field_access"

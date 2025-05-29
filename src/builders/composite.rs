@@ -2,7 +2,7 @@ use std::{fmt::Debug, marker::PhantomData, sync::Arc};
 use field_access::FieldAccess;
 use sqlx::{Database, Error, FromRow};
 use crate::{
-    common::{builder::FilterTrait, error::OperationError},
+    common::{builder::FilterTrait, error::{QueryError, SoftDeleteError}},
     sql::{
         agg::Func, delete::DeleteBuilder, filter::Expr, insert::InsertBuilder, select::SelectBuilder, update::UpdateBuilder
     },
@@ -95,7 +95,7 @@ where
                     .and_where(Expr::col(self.primarys[0]).eq(key)));
             }
         }
-        Err(OperationError::RestoreOperationNotSupported.into())
+        Err(SoftDeleteError::RestoreOperationNotSupported.into())
     }
 
     pub fn restore_by_keys(&self, keys: &[(&str, D)]) -> Result<UpdateBuilder<D>, Error> {
@@ -107,9 +107,9 @@ where
                 self.apply_global_filters(&mut builder);
                 return Ok(builder);
             }
-            return Err(OperationError::NoTableNameDefined.into());
+            return Err(SoftDeleteError::NoTableNameDefined.into());
         }
-        Err(OperationError::RestoreOperationNotSupported.into())
+        Err(SoftDeleteError::RestoreOperationNotSupported.into())
     }
 
     // Implement query operations
@@ -141,7 +141,7 @@ where
         F: Fn(&mut SelectBuilder<D>) + 'a,
     {
         if page_number == 0 || page_size == 0 {
-            return Err(OperationError::PageNumberInvalid.into());
+            return Err(QueryError::PageNumberInvalid.into());
         }
 
         let offset = (page_number - 1) * page_size;
@@ -164,7 +164,7 @@ where
         F: Fn(&mut SelectBuilder<D>) + 'a,
     {
         if limit == 0 {
-            return Err(OperationError::LimitInvalid.into());
+            return Err(QueryError::LimitInvalid.into());
         }
 
         let mut builder = self.select_builder()
@@ -188,7 +188,7 @@ where
             if self.primarys.contains(&name) {
                 let value = VC::convert(field.as_any());
                 if value == D::default() {
-                    return Err(OperationError::PrimaryKeyNotFound(name.to_string()).into());
+                    return Err(QueryError::PrimaryKeyNotFound(name.to_string()).into());
                 }
                 cols_names.push(name);
                 cols_values.push(value);
@@ -199,7 +199,7 @@ where
         }
     
         if cols_names.is_empty() {
-            return Err(OperationError::ColumnsListEmpty.into());
+            return Err(QueryError::ColumnsListEmpty.into());
         }
     
         Ok(InsertBuilder::into(self.table_name)
@@ -207,12 +207,12 @@ where
             .values(vec![cols_values]))
     }
     
-    pub fn insert_many(&self, entities: Vec<T>) -> Result<InsertBuilder<D>, OperationError>
+    pub fn insert_many(&self, entities: Vec<T>) -> Result<InsertBuilder<D>, QueryError>
     where 
         D: Default + PartialEq,
     {
         if entities.is_empty() {
-            return Err(OperationError::NoEntitiesProvided);
+            return Err(QueryError::NoEntitiesProvided);
         }
     
         let mut cols_names = Vec::new();
@@ -228,7 +228,7 @@ where
                 let value = VC::convert(field.as_any());
 
                 if self.primarys.contains(&name) && value == D::default() {
-                    return Err(OperationError::PrimaryKeyNotFound(name.to_string()));
+                    return Err(QueryError::PrimaryKeyNotFound(name.to_string()));
                 }
                 
                 cols_values.push(value);
@@ -271,7 +271,7 @@ where
     {
         for (key_name, key_value) in keys {
             if !self.primarys.contains(key_name) {
-                return Err(OperationError::PrimaryKeyNotFound(key_name.to_string()).into());
+                return Err(QueryError::PrimaryKeyNotFound(key_name.to_string()).into());
             }
             builder.and_where_mut(Expr::col(*key_name).eq(key_value.clone()));
         }
@@ -299,7 +299,7 @@ where
         if let Some((column, exclude_tables)) = self.soft_delete_config {
             if let Some(field) = T::default().field(column) {
                 if field.as_bool().is_none() {
-                    return Err(OperationError::SoftDeleteColumnTypeInvalid.into());
+                    return Err(SoftDeleteError::SoftDeleteColumnTypeInvalid.into());
                 }
             }
     
@@ -308,9 +308,9 @@ where
                     .set_cols(&[column], vec![D::from(true)]);
                 return Ok(builder);
             }
-            return Err(OperationError::NoTableNameDefined.into());
+            return Err(SoftDeleteError::NoTableNameDefined.into());
         }
-        Err(OperationError::SoftDeleteConfigNotSet.into())
+        Err(SoftDeleteError::SoftDeleteConfigNotSet.into())
     }
 
 }

@@ -1,4 +1,4 @@
-use crate::common::error::OperationError;
+use crate::common::error::QueryError;
 
 use sqlx::{Pool, MySql};
 use sqlx::{pool::PoolOptions, Error, MySqlPool};
@@ -58,5 +58,5 @@ async fn warmup_connect(pool: &MySqlPool, warmup_num: u32) -> Result<(), Error> 
 pub fn get_db_pool() -> Result<Arc<MySqlPool>, Error> {
     DB_POOL.get()
         .cloned()
-        .ok_or_else(||OperationError::DBPoolNotInitialized.into())
+        .ok_or_else(||QueryError::DBPoolNotInitialized.into())
 }

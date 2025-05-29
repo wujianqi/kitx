@@ -1,6 +1,6 @@
-# KitX - Lightweight SQL Builder for Rust
+# KitX: Lightweight Rust SQL Builder for Rapid CRUD Operations
 
-A minimalistic SQL builder library based on [sqlx](https://crates.io/crates/sqlx), supporting SQLite, MySQL/MariaDB, and PostgreSQL. It offers efficient database operations with soft delete capabilities and global filters, enabling developers to interact with databases more effectively.
+A minimalistic SQL builder library for Rust built on [sqlx](https://crates.io/crates/sqlx), designed for streamlined database interactions. This lightweight wrapper focuses on accelerating core CRUD operations (Create, Read, Update, Delete) while maintaining simplicity for straightforward database management tasks.
 
 ## Features
 
@@ -66,8 +66,11 @@ let query2 = Insert::into("users")
     .values(&[22, "John Doe"])
     .build().0;
   
-// CRUD Operations
-let op = Operations::new("articles", &[("article_id", true)]);
+// CRUD Operations (Single Key)
+let op = Operations::new("articles", ("article_id", true));
+// Composite Key Operations
+// let op = MutliKeyOperations::new("articles_tag", vec!["article_id", "tag_id"]);
+
 let article = Article {
     id: 22,
     title: "Rust Best Practices".into(),
@@ -83,7 +86,7 @@ op.insert_one(article).await?;
 let results = op.get_list_paginated(10, 2, empty_query()).await?;
 
 let results = op.get_list_by_cursor(10, |&mut builder|{
-    builder.and_where_mut(col("created_at").gt(DateTime::now()));
+    builder.and_where_mut(Expr::col("created_at").gt(DateTime::now()));
 }).await?;
 
 ```

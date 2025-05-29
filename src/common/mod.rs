@@ -7,3 +7,7 @@ pub mod query;
 
 #[cfg(any(feature = "mysql", feature = "sqlite", feature = "postgres"))]
 pub mod operations;
+
+#[cfg(any(feature = "mysql", feature = "sqlite", feature = "postgres"))]
+pub mod relation;
+

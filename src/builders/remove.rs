@@ -3,7 +3,7 @@ use field_access::FieldAccess;
 use sqlx::{Database, Error, FromRow};
 
 use crate::{
-    common::{builder::FilterTrait, error::OperationError},
+    common::{builder::FilterTrait, error::{QueryError, SoftDeleteError}},
     sql::{delete::DeleteBuilder, filter::Expr, update::UpdateBuilder}, 
     utils::typpe_conversion::ValueConvert
 };
@@ -31,7 +31,7 @@ where
         if let Some((column, exclude_tables)) = &self.soft_delete_config {
             if let Some(field) = T::default().field(column) {
                 if field.as_bool().is_none() {
-                    return Err(OperationError::SoftDeleteColumnTypeInvalid.into());
+                    return Err(SoftDeleteError::SoftDeleteColumnTypeInvalid.into());
                 }
             }
 
@@ -40,9 +40,9 @@ where
                     .set_cols(&[column], vec![D::from(true)]);
                 return Ok((self.primary.0.to_string(), builder));
             }
-            return Err(OperationError::NoTableNameDefined.into());
+            return Err(SoftDeleteError::NoTableNameDefined.into());
         }
-        Err(OperationError::SoftDeleteConfigNotSet.into())
+        Err(SoftDeleteError::SoftDeleteConfigNotSet.into())
     }
 
     pub fn soft_delete_by_key(&self, key: impl Into<D> + Send) -> Result<UpdateBuilder<D>, Error> {
@@ -55,7 +55,7 @@ where
         let keys: Vec<D> = keys.into_iter().map(|k| k.into()).collect();
     
         if keys.is_empty() {
-            return Err(OperationError::KeysListEmpty.into());
+            return Err(QueryError::KeysListEmpty.into());
         }
     
         let (pk_name, builder) = self.prepare_soft_delete()?;
@@ -84,7 +84,7 @@ where
     {
         let key = key.into();
         if key == D::default() {
-            return Err(OperationError::NoPrimaryKeyDefined.into());
+            return Err(QueryError::NoPrimaryKeyDefined.into());
         }
         
         let mut builder = DeleteBuilder::from(self.table_name)
@@ -95,7 +95,7 @@ where
 
     pub fn delete_many(&self, keys: Vec<impl Into<D>>) -> Result<DeleteBuilder<D>, Error> {
         if keys.is_empty() {
-            return Err(OperationError::KeysListEmpty.into());
+            return Err(QueryError::KeysListEmpty.into());
         }
 
         let keys = keys.into_iter().map(|k| k.into()).collect::<Vec<D>>();
@@ -125,7 +125,7 @@ where
             }
         }
 
-        Err(OperationError::RestoreOperationNotSupported.into())
+        Err(SoftDeleteError::RestoreOperationNotSupported.into())
     }
 
     pub fn restore_many(&self, keys: Vec<impl Into<D> + Send>) -> Result<UpdateBuilder<D>, Error> {
@@ -139,7 +139,7 @@ where
             }
         }
 
-        Err(OperationError::RestoreOperationNotSupported.into())
+        Err(SoftDeleteError::RestoreOperationNotSupported.into())
     }
 
 }

@@ -1,4 +1,6 @@
 use std::fmt::Debug;
+
+#[cfg(any(feature = "mysql", feature = "sqlite", feature = "postgres"))]
 use serde::{Deserialize, Serialize};
 
 /// Order by direction.
@@ -9,14 +11,8 @@ pub enum OrderBy {
     Desc,
 }
 
-///Primary key type.
-#[derive(Debug, Clone)]
-pub enum PrimaryKey<'a> {
-    Single(&'a str, bool),
-    Composite(Vec<&'a str>)
-}
-
 /// Paginated query result structure.
+#[cfg(any(feature = "mysql", feature = "sqlite", feature = "postgres"))]
 #[derive(Debug, Serialize, Deserialize, Default, Clone, PartialEq, Hash)]
 pub struct PaginatedResult<T> {
     /// Data records queried.
@@ -28,6 +24,7 @@ pub struct PaginatedResult<T> {
 }
 
 /// Cursor paginated result structure.
+#[cfg(any(feature = "mysql", feature = "sqlite", feature = "postgres"))]
 #[derive(Debug, Serialize, Deserialize, Default, Clone, PartialEq, Hash)]
 pub struct CursorPaginatedResult<T> {
     pub data: Vec<T>,      // Paginated data.

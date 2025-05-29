@@ -1,8 +1,9 @@
 pub use crate::common::types::{OrderBy, CursorPaginatedResult, PaginatedResult};
 pub use crate::common::builder::{BuilderTrait, FilterTrait, QueryTrait};
-pub use crate::common::error::{KitxError, OperationError};
+pub use crate::common::error::{KitxError, QueryError, SoftDeleteError, RelationError};
 pub use crate::common::query::QueryExecutor;
 pub use crate::common::operations::OperationsTrait;
+pub use crate::common::relation::EntitiesRelation;
 pub use crate::sql::filter::{Expr, ColumnExpr};
 pub use crate::sql::{agg::Func, case_when::CaseWhen, cte::{CTE, WithCTE},  join::JoinType};
 

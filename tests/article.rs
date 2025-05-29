@@ -4,6 +4,7 @@ use field_access::FieldAccess;
 use serde::{Deserialize, Serialize};
 #[cfg(any(feature = "mysql", feature = "sqlite", feature = "postgres"))]
 use sqlx::FromRow;
+#[cfg(any(feature = "mysql", feature = "sqlite", feature = "postgres"))]
 use std::fmt::Debug;
 
 // Article

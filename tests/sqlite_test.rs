@@ -169,12 +169,24 @@ mod sqlite_tests {
         article_ag.article_id = 1;
         article_ag.share_seq = 1234;
 
-        let handler1 = article_ops.insert_one(article);
-        let handler2 = article_tag_ops.insert_one(article_ag);
+        let ev = EntitiesRelation::one_to_one(&article.id)
+            .validate(vec![&article_ag.article_id]);
 
-        run(handler1).await;
-        run(handler2).await;
-        run(query.share().commit()).await;
+        match ev {
+            Ok(_) => {
+                let handler1 = article_ops.insert_one(article);
+                let handler2 = article_tag_ops.insert_one(article_ag);
+
+                run(handler1).await;
+                run(handler2).await;
+                run(query.share().commit()).await;
+            }
+            Err(e) => {
+                eprintln!("{:?}", e);
+                assert!(false);
+            }
+        }
+        
     }
 
 }

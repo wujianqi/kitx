@@ -4,7 +4,7 @@ use field_access::FieldAccess;
 use sqlx::{Database, Error, FromRow};
 
 use crate::{
-    common::error::OperationError, 
+    common::error::QueryError, 
     sql::{filter::Expr, insert::InsertBuilder, update::UpdateBuilder}, 
     utils::typpe_conversion::{is_none, ValueConvert}
 };
@@ -22,7 +22,7 @@ where
         entity.fields()
             .find(|(name, _)| *name == self.primary.0)
             .map(|(_, field)| VC::convert(field.as_any()))
-            .ok_or_else(|| OperationError::PrimaryKeyNotFound(self.primary.0.to_string()).into())
+            .ok_or_else(|| QueryError::PrimaryKeyNotFound(self.primary.0.to_string()).into())
     }
 
     // Insert operations
@@ -33,7 +33,7 @@ where
         for (name, field) in entity.fields() {
             if name != self.primary.0 || !self.primary.1 {
                 if is_none(field.as_any()) {
-                    return Err(OperationError::ValueInvalid(name.to_string()).into());
+                    return Err(QueryError::ValueInvalid(name.to_string()).into());
                 }
                 cols_names.push(name);
                 let value = VC::convert(field.as_any());
@@ -42,7 +42,7 @@ where
         }
 
         if cols_names.is_empty() {
-            return Err(OperationError::ColumnsListEmpty.into());
+            return Err(QueryError::ColumnsListEmpty.into());
         }
 
         Ok(InsertBuilder::into(self.table_name)
@@ -52,7 +52,7 @@ where
 
     pub fn insert_many(&self, entities: Vec<T>) -> Result<InsertBuilder<D>, Error> {
         if entities.is_empty() {
-            return Err(OperationError::NoEntitiesProvided.into());
+            return Err(QueryError::NoEntitiesProvided.into());
         }
 
         let mut cols_names = Vec::new();
@@ -87,7 +87,7 @@ where
         for (name, field) in entity.fields() {
             if name != pk_name {
                 if is_none(field.as_any()) {
-                    return Err(OperationError::ValueInvalid(name.to_string()).into());
+                    return Err(QueryError::ValueInvalid(name.to_string()).into());
                 }
                 cols_names.push(name);
                 let value = VC::convert(field.as_any());
@@ -96,7 +96,7 @@ where
         }
 
         if cols_names.is_empty() {
-            return Err(OperationError::ColumnsListEmpty.into());
+            return Err(QueryError::ColumnsListEmpty.into());
         }
 
         let primary_key_value = self.get_primary_key_value(&entity)?;
@@ -115,7 +115,7 @@ where
         F: Fn(&mut UpdateBuilder<D>) + Send + 'a,
     {
         if columns.is_empty() {
-            return Err(OperationError::ColumnsListEmpty.into());
+            return Err(QueryError::ColumnsListEmpty.into());
         }
     
         let mut builder = UpdateBuilder::table(self.table_name);
@@ -180,7 +180,7 @@ where
 
     pub fn upsert_many(&self, entities: Vec<T>) -> Result<InsertBuilder<D>, Error> {
         if entities.is_empty() {
-            return Err(OperationError::NoEntitiesProvided.into());
+            return Err(QueryError::NoEntitiesProvided.into());
         }
 
         let pk_name = self.primary.0;

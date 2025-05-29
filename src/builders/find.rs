@@ -2,7 +2,7 @@ use std::fmt::Debug;
 use field_access::FieldAccess;
 use sqlx::{Database, Error, FromRow};
 
-use crate::common::error::OperationError;
+use crate::common::error::QueryError;
 use crate::sql::agg::Func;
 use crate::utils::typpe_conversion::ValueConvert;
 use crate::sql::{
@@ -33,7 +33,7 @@ where
     {
         let key = id.into();
         if key == D::default() {
-            return Err(OperationError::NoPrimaryKeyDefined.into());
+            return Err(QueryError::NoPrimaryKeyDefined.into());
         }
 
         let mut builder = self.select_builder()
@@ -74,7 +74,7 @@ where
         F: Fn(&mut SelectBuilder<D>) + 'a,
     {
         if page_number == 0 || page_size == 0 {
-            return Err(OperationError::PageNumberInvalid.into());
+            return Err(QueryError::PageNumberInvalid.into());
         }
 
         let offset = (page_number - 1) * page_size;
@@ -96,7 +96,7 @@ where
         F: Fn(&mut SelectBuilder<D>) + 'a,
     {
         if limit == 0 {
-            return Err(OperationError::LimitInvalid.into());
+            return Err(QueryError::LimitInvalid.into());
         }
 
         let mut builder = self.select_builder()
