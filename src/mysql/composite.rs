@@ -2,8 +2,8 @@ use std::borrow::Cow;
 use std::marker::PhantomData;
 use std::sync::Arc;
 use field_access::FieldAccess;
-use sqlx::postgres::{PgQueryResult, PgRow};
-use sqlx::{Error, FromRow, Postgres};
+use sqlx::mysql::{MySqlQueryResult, MySqlRow};
+use sqlx::{Error, FromRow, MySql};
 
 use crate::common::query::QueryExecutor;
 use crate::builders::composite::CompositeKeyTable;
@@ -11,23 +11,23 @@ use crate::common::types::{CursorPaginatedResult, PaginatedResult};
 use crate::utils::query_condition::QueryCondition;
 
 use super::kind::DataKind;
-use super::query::PostgresQuery;
+use super::query::MySqlQuery;
 use super::{Delete, Select};
 use super::global::{get_global_soft_delete_field, get_global_filter};
 
 /// Data operations structure for composite primary key scenarios
 pub struct MutliKeyOperations<'a, T>
 where
-    T: for<'r> FromRow<'r, PgRow> + FieldAccess + Default + Unpin + Send + Sync,
+    T: for<'r> FromRow<'r, MySqlRow> + FieldAccess + Default + Unpin + Send + Sync,
 {
-    table_query: CompositeKeyTable<'a, T, DataKind<'a>, Postgres, DataKind<'a>>,
-    query: Arc<PostgresQuery<'a>>,
+    table_query: CompositeKeyTable<'a, T, DataKind<'a>, MySql, DataKind<'a>>,
+    query: Arc<MySqlQuery<'a>>,
     _phantom: PhantomData<&'a T>,
 }
 
 impl<'a, T> MutliKeyOperations<'a, T>
 where
-    T: for<'r> FromRow<'r, PgRow> + FieldAccess + Unpin + Send + Sync + Default,
+    T: for<'r> FromRow<'r, MySqlRow> + FieldAccess + Unpin + Send + Sync + Default,
 {
     /// Create a new Relations instance with composite primary keys
     pub fn new(table_name: &'a str, primarys: Vec<&'a str>) -> Self {
@@ -40,12 +40,12 @@ where
 
         MutliKeyOperations { 
             table_query, 
-            query: Arc::new(PostgresQuery::new()), 
+            query: Arc::new(MySqlQuery::new()), 
             _phantom: PhantomData 
         }
     }
 
-    pub fn set(mut self, query: Arc<PostgresQuery<'a>>) -> Self {
+    pub fn set(mut self, query: Arc<MySqlQuery<'a>>) -> Self {
         self.query = query;
         self
     }
@@ -53,6 +53,14 @@ where
     // Composite key specific operations
     pub async fn get_one_by_keys(&self, keys: &[(&str, DataKind<'a>)]) -> Result<Option<T>, Error> {
         let builder = self.table_query.get_one_by_keys(keys)?;
+        self.query.fetch_optional::<T, Select>(builder).await
+    }
+
+    pub async fn get_one<F>(&self, query_condition: F) -> Result<Option<T>, Error>
+    where
+        F: Fn(&mut Select<'a>) + Send + Sync + 'a,
+    {
+        let builder = self.table_query.get_one(query_condition);
         self.query.fetch_optional::<T, Select>(builder).await
     }
 
@@ -109,17 +117,17 @@ where
         })
     }
 
-    pub async fn insert_one(&self, entity: T) -> Result<PgQueryResult, Error> {
+    pub async fn insert_one(&self, entity: T) -> Result<MySqlQueryResult, Error> {
         let builder = self.table_query.insert_one(entity)?;
         self.query.execute(builder).await
     }
 
-    pub async fn insert_many(&self, entities: Vec<T>) -> Result<PgQueryResult, Error> {
+    pub async fn insert_many(&self, entities: Vec<T>) -> Result<MySqlQueryResult, Error> {
         let builder = self.table_query.insert_many(entities)?;
         self.query.execute(builder).await
     }
 
-    pub async fn delete_by_keys(&self, keys: &[(&str, DataKind<'a>)]) -> Result<PgQueryResult, Error> {
+    pub async fn delete_by_keys(&self, keys: &[(&str, DataKind<'a>)]) -> Result<MySqlQueryResult, Error> {
         if self.table_query.is_soft_delete_enabled() {
             let builder = self.table_query.soft_delete_by_keys(&keys)?;
             self.query.execute(builder).await
@@ -130,7 +138,7 @@ where
     }
 
     /// Delete records based on custom condition configuration
-    pub async fn delete_by_cond<F>(&self, query_condition: F) -> Result<PgQueryResult, Error>
+    pub async fn delete_by_cond<F>(&self, query_condition: F) -> Result<MySqlQueryResult, Error>
     where
         F: Fn(&mut Delete<'a>) + Send + Sync + 'a,
     {
@@ -143,12 +151,12 @@ where
         }
     }
 
-    pub async fn restore_one(&self, key: impl Into<DataKind<'a>> + Send) -> Result<PgQueryResult, Error> {
+    pub async fn restore_one(&self, key: impl Into<DataKind<'a>> + Send) -> Result<MySqlQueryResult, Error> {
         let builder = self.table_query.restore_one(key)?;
         self.query.execute(builder).await
     }
 
-    pub async fn restore_many(&self, keys: Vec<impl Into<DataKind<'a>> + Send>) -> Result<PgQueryResult, Error> {
+    pub async fn restore_many(&self, keys: Vec<impl Into<DataKind<'a>> + Send>) -> Result<MySqlQueryResult, Error> {
         let data_keys: Vec<_> = keys.into_iter().map(|k| ("id", k.into())).collect();
         let builder = self.table_query.restore_by_keys(&data_keys)?;
         self.query.execute(builder).await
@@ -159,7 +167,7 @@ where
         F: Fn(&mut Select<'a>) + Send + Sync + 'a,
     {
         let builder = self.table_query.count(query_condition);
-        let result = self.query.fetch_one::<(i64,), Select>(builder).await?;
-        Ok(result.0 as u64)
+        let result = self.query.fetch_one::<(u64,), Select>(builder).await?;
+        Ok(result.0)
     }
 }

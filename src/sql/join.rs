@@ -80,7 +80,7 @@ impl<T: Debug + Clone> JoinType<T> {
         let (join_type, table) = &self.join_type;
 
         // Append JOIN clause
-        sql.push_str(" ");
+        // sql.push_str(" ");
         sql.push_str(join_type);
         sql.push_str(" ");
         sql.push_str(table);

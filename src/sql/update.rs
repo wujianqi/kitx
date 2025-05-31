@@ -127,12 +127,22 @@ impl<T: Debug + Clone> UpdateBuilder<T> {
 
     /// Adds a JOIN clause to the UPDATE statement.
     pub fn join(mut self, join_clauses: JoinType<T>) -> Self {
+        self.join_mut(join_clauses);
+        self
+    }
+
+    pub fn join_mut(&mut self, join_clauses: JoinType<T>) -> &mut Self {
         self.joins.push(join_clauses);
         self
     }
 
     /// Adds a CASE WHEN clause to the UPDATE statement.
     pub fn case_when(mut self, case_when: CaseWhen<T>) -> Self {
+        self.case_when_mut(case_when);
+        self
+    }
+
+    pub fn case_when_mut(&mut self, case_when: CaseWhen<T>) -> &mut Self {
         let (case_when_sql, case_when_values) = case_when.build();
         self.sql.push_str(", ");
         self.sql.push_str(&case_when_sql);
@@ -148,6 +158,11 @@ impl<T: Debug + Clone> UpdateBuilder<T> {
 
     /// Appends a new SQL query and parameter value to the existing query.
     pub fn append(mut self, sql: impl Into<String>, value: Option<T>)-> Self {
+        self.append_mut(sql, value);
+        self
+    }
+
+    pub fn append_mut(&mut self, sql: impl Into<String>, value: Option<T>)-> &mut Self {
         let sql = sql.into();
         let mut values = vec![];
         if let Some(val) = value {
@@ -157,6 +172,7 @@ impl<T: Debug + Clone> UpdateBuilder<T> {
         self.values.extend(values);
         self
     }
+    
 
     /// Adds a WITH clause to the SELECT statement.
     /// Supported in Mysql 8.0+、Sqlite 3.8.3+ only.

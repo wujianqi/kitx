@@ -13,7 +13,7 @@ use sqlx::types::Decimal;
 use serde_json::Value;
 use uuid::Uuid;
 
-use crate::utils::typpe_conversion::{unwrap_option, ValueConvert};
+use crate::utils::type_conversion::{unwrap_option, ValueConvert};
 
 /// Enum representing PostgreSQL data types, supporting the main PostgreSQL type system
 #[derive(Default, Debug, Clone, PartialEq)]

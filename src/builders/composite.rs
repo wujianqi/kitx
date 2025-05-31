@@ -2,11 +2,10 @@ use std::{fmt::Debug, marker::PhantomData, sync::Arc};
 use field_access::FieldAccess;
 use sqlx::{Database, Error, FromRow};
 use crate::{
-    common::{builder::FilterTrait, error::{QueryError, SoftDeleteError}},
-    sql::{
-        agg::Func, delete::DeleteBuilder, filter::Expr, insert::InsertBuilder, select::SelectBuilder, update::UpdateBuilder
-    },
-    utils::typpe_conversion::ValueConvert,
+    common::{builder::FilterTrait, error::{QueryError, SoftDeleteError}}, sql::{
+        agg::Func, delete::DeleteBuilder, filter::Expr, 
+        insert::InsertBuilder, select::SelectBuilder, update::UpdateBuilder
+    }, utils::type_conversion::ValueConvert
 };
 
 pub struct CompositeKeyTable<'a, T, D, DB, VC>
@@ -119,6 +118,18 @@ where
         self.apply_global_filters(&mut builder);
         Ok(builder)
     }
+
+    /// Get one record by any fields
+    pub fn get_one<F>(&self, query_condition: F) -> SelectBuilder<D>
+    where
+        F: Fn(&mut SelectBuilder<D>) + 'a,
+    {
+        let mut builder = self.select_builder();
+        self.apply_global_filters(&mut builder);
+        query_condition(&mut builder);
+        builder
+    }
+
 
     pub fn get_list<F>(&self, query_condition: F) -> SelectBuilder<D>
     where
@@ -256,13 +267,8 @@ where
         builder
     }
 
-    // Helper methods
     fn select_builder(&self) -> SelectBuilder<D> {
-        let column_names = T::default().fields()
-            .map(|(name, _)| name)
-            .collect::<Vec<_>>();
-        
-        SelectBuilder::columns(&column_names).from(self.table_name)
+        SelectBuilder::columns(T::default().field_names()).from(self.table_name)
     }
 
     fn apply_primary_keys<W>(&self, builder: &mut W, keys: &[(&str, D)]) -> Result<(), Error>

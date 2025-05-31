@@ -7,7 +7,7 @@ use sqlx::{Encode, Type, TypeInfo};
 use sqlx::types::{Decimal, Uuid};
 use serde_json::Value;
 
-use crate::utils::typpe_conversion::{unwrap_option, ValueConvert};
+use crate::utils::type_conversion::{unwrap_option, ValueConvert};
 
 /// Data type enumeration, supporting the main type system of MySQL
 #[derive(Default, Debug, Clone, PartialEq)]

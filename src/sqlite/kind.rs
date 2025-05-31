@@ -8,7 +8,7 @@ use sqlx::types::Uuid;
 use sqlx::{Database, Encode, Sqlite, Type};
 use sqlx::sqlite::SqliteArgumentValue;
 
-use crate::utils::typpe_conversion::{unwrap_option, ValueConvert};
+use crate::utils::type_conversion::{unwrap_option, ValueConvert};
 
 /// Enum representing different types of database field values.
 #[derive(Default, Debug, Clone, PartialEq)]

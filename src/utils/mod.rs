@@ -1,4 +1,4 @@
-pub mod typpe_conversion;
+pub mod type_conversion;
 pub mod chars;
 
 #[cfg(any(feature = "mysql", feature = "sqlite", feature = "postgres"))]

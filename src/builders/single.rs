@@ -7,7 +7,7 @@ use sqlx::{Database, FromRow};
 use crate::{
     common::builder::FilterTrait,
     sql::filter::Expr,
-    utils::typpe_conversion::ValueConvert,
+    utils::type_conversion::ValueConvert,
 };
 
 pub struct SingleKeyTable<'a, T, D, DB, VC>

@@ -5,13 +5,16 @@ A minimalistic SQL builder library for Rust built on [sqlx](https://crates.io/cr
 ## Features
 
 ### Core Functionality
-- **Efficient CRUD Operations**  
+- **Single-key Table CRUD Operations**  
   `insert_one`, `insert_many`, `update_by_key`, `update_by_expr`, `update_one`,  
   `upsert_by_key`, `upsert_many`, `delete_by_key`, `delete_by_cond`, `delete_many`  
-
-- **Advanced Queries**  
   `get_one_by_key`, `get_one`, `get_list`, `get_list_paginated`,  
   `get_list_by_cursor`, `exists`, `count`  
+
+- **Composite-Key Table Operations**  
+  `insert_one`, `insert_many`, `delete_by_keys`, `delete_by_cond`, 
+  `get_one_by_keys`, `get_one`, `get_list`, `get_list_paginated`,  
+  `get_list_by_cursor`, `count`  
 
 - **Soft Delete Management**  
   `restore_one`, `restore_many`  
@@ -83,7 +86,7 @@ op.insert_one(article).await?;
 
 ### 3. Pagination Example
 ```rust
-let results = op.get_list_paginated(10, 2, empty_query()).await?;
+let results = op.get_list_paginated(10, 2, |_|{}).await?;
 
 let results = op.get_list_by_cursor(10, |&mut builder|{
     builder.and_where_mut(Expr::col("created_at").gt(DateTime::now()));
@@ -91,7 +94,19 @@ let results = op.get_list_by_cursor(10, |&mut builder|{
 
 ```
 
-### 4. Transaction Management
+### 4. JOIN Operations (Relationship Handling)
+```rust
+let results = op.get_list(|&mut builder|{
+    builder.alias_mut("u")
+        .and_where_mut(Expr::col("u.age").eq(20)))
+        .join_mut(JoinType::inner("orders o")
+            .on(Expr::from_str("u.id = o.user_id")
+            .and(Expr::from_str("u.name = o.user_name"))
+}).await?;
+
+```
+
+### 5. Transaction Management
 ```rust
 use kitx::prelude::{*, postgres::*};
 
@@ -115,7 +130,7 @@ query.share().commit().await?;
 
 ```
 
-### 5. Optional: Global Configuration
+### 6. Optional: Global Configuration
 ```rust
 // Soft delete configuration
 set_global_soft_delete_field("deleted_at", &["audit_logs"]);
@@ -124,8 +139,7 @@ set_global_soft_delete_field("deleted_at", &["audit_logs"]);
 // Multi-tenant filtering
 set_global_filter(col("tenant_id").eq(123)), &["system_metrics"]);
 ```
-
-### 6. More Usage Examples 
+### 7. More Usage Examples 
 For more detailed usage examples and advanced scenarios, please refer to the test cases provided in the repository.
 
 ## License

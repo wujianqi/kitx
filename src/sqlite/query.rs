@@ -115,6 +115,7 @@ impl<'a> QueryExecutor<DataKind<'a>, Sqlite> for SqliteQuery<'a> {
     {
         let pool = self.get_db_pool()?;
         let (sql, values) = qb.build();
+        //dbg!(&sql);
 
         let mut query = sqlx::query_as::<_, T>(&sql);
 

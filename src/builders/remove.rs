@@ -5,7 +5,7 @@ use sqlx::{Database, Error, FromRow};
 use crate::{
     common::{builder::FilterTrait, error::{QueryError, SoftDeleteError}},
     sql::{delete::DeleteBuilder, filter::Expr, update::UpdateBuilder}, 
-    utils::typpe_conversion::ValueConvert
+    utils::type_conversion::ValueConvert
 };
 
 use super::single::SingleKeyTable;

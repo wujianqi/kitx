@@ -154,7 +154,21 @@ mod sqlite_tests {
     }
 
     #[tokio::test]
-    async fn with_relations() {
+    async fn with_relations_find_one() {
+        setup_db_pool().await;
+
+        let qf = |builder: &mut Select| {
+            builder.alias_mut("tag")
+                .and_where_mut(Expr::col("article_id").eq(1))
+                .join_mut(JoinType::inner("article")
+                    .on(Expr::from_str("tag.article_id = article.id")));
+        };
+        run(cops().get_one(qf)).await;
+        
+    }
+
+    #[tokio::test]
+    async fn with_relations_create() {
         setup_db_pool().await;
         let query = Query::shared();
         
@@ -165,17 +179,17 @@ mod sqlite_tests {
 
         let mut article = Article::new(100,"test222", None);
         article.content = Some("abc".to_string());
-        let mut article_ag = ArticleTag::new("tag1");
-        article_ag.article_id = 1;
-        article_ag.share_seq = 1234;
+        let mut article_tag = ArticleTag::new("tag1");
+        article_tag.article_id = 1;
+        article_tag.share_seq = 1234;
 
         let ev = EntitiesRelation::one_to_one(&article.id)
-            .validate(vec![&article_ag.article_id]);
+            .validate(vec![&article_tag.article_id]);
 
         match ev {
             Ok(_) => {
                 let handler1 = article_ops.insert_one(article);
-                let handler2 = article_tag_ops.insert_one(article_ag);
+                let handler2 = article_tag_ops.insert_one(article_tag);
 
                 run(handler1).await;
                 run(handler2).await;

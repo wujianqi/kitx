@@ -56,6 +56,14 @@ where
         self.query.fetch_optional::<T, Select>(builder).await
     }
 
+    pub async fn get_one<F>(&self, query_condition: F) -> Result<Option<T>, Error>
+    where
+        F: Fn(&mut Select<'a>) + Send + Sync + 'a,
+    {
+        let builder = self.table_query.get_one(query_condition);
+        self.query.fetch_optional::<T, Select>(builder).await
+    }
+
     pub async fn get_list<F>(&self, query_condition: F) -> Result<Vec<T>, Error>
     where
         F: Fn(&mut Select<'a>) + Send + Sync + 'a,

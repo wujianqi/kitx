@@ -1,4 +1,4 @@
-use super::types::OrderBy;
+/* use super::types::OrderBy; */
 
 /// SQL builder trait, defining common SQL building methods.
 pub trait BuilderTrait<T> {
@@ -21,7 +21,7 @@ pub trait FilterTrait<T>: BuilderTrait<T> {
         F: Into<Self::Expr>;
 }
 
-/// Select clause trait, extending FilterTrait with select-specific methods.
+/* /// Select clause trait, extending FilterTrait with select-specific methods.
 pub trait QueryTrait<T>: FilterTrait<T> {
     /// Add an ORDER BY clause.
     fn order_by_mut(&mut self, column: &str, ordering: OrderBy) -> &mut Self;
@@ -33,3 +33,4 @@ pub trait QueryTrait<T>: FilterTrait<T> {
         offset: Option<impl Into<T>>,
     ) -> &mut Self;
 }
+ */

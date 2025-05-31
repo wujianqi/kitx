@@ -81,22 +81,13 @@ impl<T: Debug + Clone> InsertBuilder<T> {
         self
     }
 
-    
-    /// Creates a new InsertBuilder instance with the given SQL query and parameter values.
-    pub fn raw(sql: impl Into<String>, params: Option<Vec<T>>) -> Self {
-        let sql = sql.into();
-        let mut values = vec![];
-        if let Some(vals) = params {
-            values.extend(vals);
-        }
-        Self {
-            sql,
-            values,
-        }        
-    }
-
     /// Appends a new SQL query and parameter value to the existing query.
     pub fn append(mut self, sql: impl Into<String>, value: Option<T>)-> Self {
+        self.append_mut(sql, value);
+        self
+    }
+
+    pub fn append_mut(&mut self, sql: impl Into<String>, value: Option<T>)-> &mut Self {
         let sql = sql.into();
         let mut values = vec![];
         if let Some(val) = value {

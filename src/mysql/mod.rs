@@ -2,8 +2,8 @@ pub mod global;
 pub mod connection;
 pub mod kind;
 pub mod query;
-pub mod crud;
-pub mod multi_key;
+pub mod single;
+pub mod composite;
 
 use crate::sql::{
     query_builder::SqlBuilder, 

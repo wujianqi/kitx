@@ -4,7 +4,7 @@ use sqlx::{Database, Error, FromRow};
 
 use crate::common::error::QueryError;
 use crate::sql::agg::Func;
-use crate::utils::typpe_conversion::ValueConvert;
+use crate::utils::type_conversion::ValueConvert;
 use crate::sql::{
     filter::Expr,
     select::SelectBuilder,
@@ -20,11 +20,7 @@ where
     VC: ValueConvert<D>,
 {
     fn select_builder(&self) -> SelectBuilder<D> {
-        let column_names = T::default().fields()
-            .map(|(name, _)| name)
-            .collect::<Vec<_>>();
-
-        SelectBuilder::columns(&column_names).from(self.table_name)
+        SelectBuilder::columns(T::default().field_names()).from(self.table_name)
     }
 
     pub fn get_one_by_key(&self, id: impl Into<D> + Send) -> Result<SelectBuilder<D>, Error> 

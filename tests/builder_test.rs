@@ -116,6 +116,24 @@ fn test_join() {
 }
 
 #[test]
+fn test_join_alias() {
+    // Test INNER JOIN with ON condition
+    let sql = SelectBuilder::columns(&["id", "name"])
+        .from("users")
+        .alias("u")
+        .and_where(Expr::<Value>::new("u.age", "=", 25))
+        .join(JoinType::inner("orders AS o")
+            .on(Expr::from_str("u.id = o.user_id")
+            .and(Expr::from_str("u.name = o.user_name"))
+    )).build().0;
+
+    assert_eq!(
+        sql, 
+        "SELECT u.id, u.name FROM users AS u INNER JOIN orders AS o ON u.id = o.user_id AND u.name = o.user_name WHERE u.age = ?"
+    );
+}
+
+#[test]
 fn test_aggregate_functions() {
     let sql = SelectBuilder::columns(&["department"])
         .aggregate(Func::<Value>::default()

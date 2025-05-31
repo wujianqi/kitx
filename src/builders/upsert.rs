@@ -6,7 +6,7 @@ use sqlx::{Database, Error, FromRow};
 use crate::{
     common::error::QueryError, 
     sql::{filter::Expr, insert::InsertBuilder, update::UpdateBuilder}, 
-    utils::typpe_conversion::{is_none, ValueConvert}
+    utils::type_conversion::{is_none, ValueConvert}
 };
 
 use super::single::SingleKeyTable;
