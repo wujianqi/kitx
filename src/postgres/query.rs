@@ -140,7 +140,9 @@ impl<'a> QueryExecutor<DataKind<'a>, Postgres> for PostgresQuery<'a> {
         } else {
             let pool = self.get_db_pool()?;
             let (sql, values) = qb.build();
-            let mut query = sqlx::query(&sql);
+            let replaced_sql = replace_placeholders(&sql);
+            dbg!(&replaced_sql, &values);            
+            let mut query = sqlx::query(&replaced_sql);
             for value in values {
                 query = query.bind(value);
             }

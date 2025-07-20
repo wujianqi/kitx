@@ -2,21 +2,69 @@ use std::fmt::Debug;
 use std::future::Future;
 
 use sqlx::{Database, Error, FromRow};
+use super::types::{PrimaryKey, CursorPaginatedResult, PaginatedResult};
 
-use super::types::{CursorPaginatedResult, PaginatedResult};
+/// Trait for building operations on entities
+/// This trait defines methods for inserting, updating, deleting, and querying entities.
+/// It is generic over the entity type `T` and the database type `D`.
+/// The trait is designed to be used with a specific database type that implements the `Database` trait from `sqlx`.
+pub trait OpsBuilderTrait<'a, T, D> 
+where 
+    T: Send + Sync + 'a,
+    D: Clone + Debug + Send +  'a,
+{
+    type SelectBuilder;
+    type UpdateBuilder;
+    type DeleteBuilder;
+    type InsertBuilder;
 
-pub trait OperationsTrait<'a, T, DB, D>: Send + Sync 
+    fn insert_many(&self, entities: Vec<T>) -> Result<Self::InsertBuilder, Error>;
+    fn update_one(&self, entity: T) -> Result<Self::UpdateBuilder, Error>;
+    fn update_by_cond<F>(&self, query_condition: F) -> Result<Self::UpdateBuilder, Error>
+        where F: Fn(&mut Self::UpdateBuilder) + Send;
+    fn upsert_many(&self, entities: Vec<T>, use_default_expr: bool) -> Result<(Self::InsertBuilder, Vec<&'a str>, Vec<&'a str>), Error>;
+
+    fn delete_by_pk(&self, key: impl Into<PrimaryKey<D>>) -> Result<Self::DeleteBuilder, Error>;
+    fn delete_by_cond<F>(&self, query_condition: F) -> Result<Self::DeleteBuilder, Error>
+        where F: Fn(&mut Self::DeleteBuilder) + Send;
+
+    fn fetch_by_cond<F>(&self, query_condition: F) -> Self::SelectBuilder
+        where F: Fn(&mut Self::SelectBuilder);
+    fn fetch_by_pk(&self, key: impl Into<PrimaryKey<D>>) -> Result<Self::SelectBuilder, Error>;    
+    fn get_list_paginated<F>(&self, page_number: u64, page_size: u64, query_condition: F) -> Result<Self::SelectBuilder, Error>
+        where F: Fn(&mut Self::SelectBuilder);
+    fn get_list_by_cursor<F>(&self, limit: u64, query_condition: F) -> Result<Self::SelectBuilder, Error>
+        where F: Fn(&mut Self::SelectBuilder);
+    fn exists<F>(&self, query_condition: F) -> Self::SelectBuilder
+        where F: Fn(&mut Self::SelectBuilder);
+    fn count<F>(&self, query_condition: F) -> Self::SelectBuilder
+        where F: Fn(&mut Self::SelectBuilder);    
+
+    // Soft delete and restore operations
+    fn soft_delete_by_pk(&self, key: impl Into<PrimaryKey<D>>) -> Result<Self::UpdateBuilder, Error>;
+    fn soft_delete_by_cond<F>(&self, query_condition: F) -> Result<Self::UpdateBuilder, Error>
+        where F: Fn(&mut Self::UpdateBuilder) + Send;
+    fn restore_by_pk(&self, key: impl Into<PrimaryKey<D>>) -> Result<Self::UpdateBuilder, Error>;
+    fn restore_by_cond<F>(&self, query_condition: F) -> Result<Self::UpdateBuilder, Error>
+       where F: Fn(&mut Self::UpdateBuilder) + Send;
+
+    // Soft delete status check
+    fn is_soft_delete_enabled(&self) -> bool;
+}
+
+/// Trait for performing operations on entities
+/// This trait defines methods for inserting, updating, deleting, and querying entities.
+/// It is generic over the entity type `T`, the database type `DB`, and the primary key type `D`.
+/// It is designed to be used with a specific database type that implements the `Database` trait from `sqlx`.
+pub trait OpsActionTrait<'a, T, DB, D>: Send + Sync 
 where
     DB: Database,
-    T: for<'r> FromRow<'r, DB::Row> + Send + Sync + Default,
+    T: Default + for<'r> FromRow<'r, DB::Row> + Send + Sync,
     D: Clone + Debug + Send + Sync,
 {
     type QueryFilter<'b>;
     type UpdateFilter<'b>;
     type DeleteFilter<'b>;
-
-    /// Creates a new `Operations` instance.
-    fn new(table_name: &'a str, primarys: (&'a str, bool)) -> Self;
 
     /// Inserts a single record into the database and returns the primary key value of the inserted record.
     /// 
@@ -37,36 +85,16 @@ where
     fn insert_many(&self, entities: Vec<T>) -> impl Future<Output = Result<DB::QueryResult, Error>> + Send;
 
     /// Updates a single record and returns the number of affected rows.
-    /// 
-    /// # Parameters
-    /// * `entity`: The entity to be updated.
-    /// 
-    /// # Returns
-    /// Returns the number of affected rows.
-    fn update_by_key(&self, entity: T) -> impl Future<Output = Result<DB::QueryResult, Error>> + Send;
+    fn update_one(&self, entity: T) -> impl Future<Output = Result<DB::QueryResult, Error>> + Send;
 
-
-    /// Updates multiple records based on computed values derived from existing data.
-    ///
-    /// # Parameters
-    /// * `columns`: A list of columns to be updated, typically involving expressions based on existing data (e.g., `"views = views + 1"`).
-    /// * `condition`: A query condition structure used to filter which records to update.
-    ///
-    /// # Returns
-    /// Returns the number of affected rows.
-    fn update_by_expr<F>(&self, columns: &[(&str, &str)], query_condition: F) -> impl Future<Output = Result<DB::QueryResult, Error>> + Send
-    where
-        F: Fn(&mut Self::UpdateFilter<'a>) + Send + Sync + 'a;
-    
     /// Updates a single record and returns the number of affected rows.
     /// 
     /// # Parameters
-    /// * `entity`: The entity to be updated.
     /// * `query_condition`: The query condition to filter the records to be updated.
     /// 
     /// # Returns
     /// Returns the number of affected rows.
-    fn update_one<F>(&self, entity: T, query_condition: F) -> impl Future<Output = Result<DB::QueryResult, Error>> + Send
+    fn update_by_cond<F>(&self, query_condition: F) -> impl Future<Output = Result<DB::QueryResult, Error>> + Send
     where
         F: Fn(&mut Self::UpdateFilter<'a>) + Send + Sync + 'a;
 
@@ -91,16 +119,7 @@ where
     /// 
     /// # Returns
     /// Returns the number of affected rows.
-    fn delete_by_key(&self, key: impl Into<D> + Send) -> impl Future<Output = Result<DB::QueryResult, Error>> + Send;
-
-    /// Deletes multiple records and returns the number of affected rows.
-    /// 
-    /// # Parameters
-    /// * `keys`: A list of primary key values of the records to be deleted.
-    /// 
-    /// # Returns
-    /// Returns the number of affected rows.
-    fn delete_many(&self, keys: Vec<impl Into<D> + Send>) -> impl Future<Output = Result<DB::QueryResult, Error>> + Send;
+    fn delete_by_pk(&self, key: impl Into<PrimaryKey<D>> + Send + Sync) -> impl Future<Output = Result<DB::QueryResult, Error>> + Send;
 
     /// Deletes a single or multiple records and returns the number of affected rows.
     /// 
@@ -114,6 +133,25 @@ where
     where
         F: Fn(&mut Self::DeleteFilter<'a>) + Send + Sync + 'a;
 
+    /// Queries and returns a single record based on the primary key.
+    /// 
+    /// # Parameters
+    /// * `key`: The primary key value of the record to be queried.
+    /// 
+    /// # Returns
+    /// Returns a single record.
+    fn get_one_by_pk(&self, key: impl Into<PrimaryKey<D>> + Send + Sync) -> impl Future<Output = Result<Option<T>, Error>> + Send;
+
+    /// Queries and returns a single record based on field conditions.
+    /// 
+    /// # Parameters
+    /// * `query_condition`: A query condition structure.
+    /// 
+    /// # Returns
+    /// Returns a single record.
+    fn get_one_by_cond<F>(&self, query_condition: F) -> impl Future<Output = Result<Option<T>, Error>> + Send
+    where
+        F: Fn(&mut Self::QueryFilter<'a>) + Send + Sync + 'a;
 
     /// Queries and returns all records in the table, supporting conditional queries.
     /// 
@@ -122,29 +160,10 @@ where
     /// 
     /// # Returns
     /// Returns a list of records.
-    fn get_list<F>(&self, query_condition: F) -> impl Future<Output = Result<Vec<T>, Error>> + Send
+    fn get_list_by_cond<F>(&self, query_condition: F) -> impl Future<Output = Result<Vec<T>, Error>> + Send
     where
         F: Fn(&mut Self::QueryFilter<'a>) + Send + Sync + 'a;
-
-    /// Queries and returns a single record based on the primary key.
-    /// 
-    /// # Parameters
-    /// * `id`: The primary key value of the record to be queried.
-    /// 
-    /// # Returns
-    /// Returns a single record.
-    fn get_one_by_key(&self, id: impl Into<D> + Send) -> impl Future<Output = Result<Option<T>, Error>> + Send;
-   
-    /// Queries and returns a single record based on field conditions.
-    /// 
-    /// # Parameters
-    /// * `query_condition`: A query condition structure.
-    /// 
-    /// # Returns
-    /// Returns a single record.
-    fn get_one<F>(&self, query_condition: F) -> impl Future<Output = Result<Option<T>, Error>> + Send
-    where
-        F: Fn(&mut Self::QueryFilter<'a>) + Send + Sync + 'a;
+        
     /// Paginates and returns records in the table, supporting conditional queries.
     /// 
     /// # Parameters
@@ -171,14 +190,15 @@ where
     /// 
     /// # Returns
     /// Returns a cursor paginated result structure.
-    fn get_list_by_cursor<F>(
+    fn get_list_by_cursor<F, C>(
         &self,
         limit: u64,
         query_condition: F,
-    ) -> impl Future<Output = Result<CursorPaginatedResult<T>, Error>> + Send
+        cursor_extractor: impl Fn(&T) -> C + Send + Sync,
+    ) -> impl Future<Output = Result<CursorPaginatedResult<T, C>, Error>> + Send
     where
-        T: Clone,
-        F: Fn(&mut Self::QueryFilter<'a>) + Send + Sync + 'a;
+        F: Fn(&mut Self::QueryFilter<'a>) + Send + Sync + 'a,
+        C: Send + Sync;
 
     /// Checks if the value of a field is unique.
     /// 
@@ -203,12 +223,11 @@ where
     /// 
     /// # Parameters
     /// * `key`: The primary key value of the record to be restored.
-    fn restore_one(&self, key: impl Into<D> + Send) -> impl Future<Output = Result<DB::QueryResult, Error>> + Send;
+    fn restore_by_pk(&self, key: impl Into<PrimaryKey<D>> + Send + Sync) -> impl Future<Output = Result<DB::QueryResult, Error>> + Send;
 
-    /// Restores multiple soft-deleted records.
-    /// 
-    /// # Parameters
-    /// * `keys`: A list of primary key values of the records to be restored.
-    fn restore_many(&self, keys: Vec<impl Into<D> + Send>) -> impl Future<Output = Result<DB::QueryResult, Error>> + Send;
+    /// Restores soft-deleted records based on a query condition.
+    fn restore_by_cond<F>(&self, query_condition: F) -> impl Future<Output = Result<DB::QueryResult, Error>> + Send
+     where
+        F: Fn(&mut Self::UpdateFilter<'a>) + Send + Sync + 'a;
 
 }

@@ -1,5 +1,8 @@
 use std::any::Any;
 
+#[cfg(any(feature = "mysql", feature = "sqlite", feature = "postgres"))]
+use sqlx::types::Uuid;
+
 /// Trait for converting values to a specific type.
 pub trait ValueConvert<T> {
     fn convert(value: &dyn Any) -> T;
@@ -56,6 +59,22 @@ pub fn is_none(value: &dyn Any) -> bool {
     }
 
     false
+}
+
+/// Helper function to check if a value is the default primary key value.
+#[cfg(any(feature = "mysql", feature = "sqlite", feature = "postgres"))]
+pub fn is_default_pk(value: &dyn Any) -> bool {
+    if let Some(v) = value.downcast_ref::<i32>() {
+        *v == 0
+    } else if let Some(v) = value.downcast_ref::<i64>() {
+        *v == 0
+    } else if let Some(v) = value.downcast_ref::<String>() {
+        v.is_empty()
+    } else if let Some(v) = value.downcast_ref::<Uuid>() {
+        v.is_nil()
+    } else {
+        false
+    }
 }
 
 #[cfg(test)]

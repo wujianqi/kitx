@@ -120,6 +120,7 @@ impl<'a> ValueConvert<DataKind<'a>> for DataKind<'a> {
             Uuid => |v: &Uuid| DataKind::Uuid(*v)
         );
     }
+
 }
 
 // Implement automatic conversion from common types to DataKind
@@ -161,3 +162,15 @@ impl_from!(Value, |value: Value| DataKind::Json(Cow::Owned(value)));
 
 // UUID type
 impl_from!(Uuid, DataKind::Uuid);
+
+impl<'a> From<DataKind<'a>> for Cow<'a, DataKind<'a>> {
+    fn from(value: DataKind<'a>) -> Self {
+        Cow::Owned(value)
+    }
+}
+
+impl<'a> From<&'a DataKind<'a>> for Cow<'a, DataKind<'a>> {
+    fn from(value: &'a DataKind<'a>) -> Self {
+        Cow::Borrowed(value)
+    }
+}

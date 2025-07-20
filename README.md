@@ -5,19 +5,12 @@ A minimalistic SQL builder library for Rust built on [sqlx](https://crates.io/cr
 ## Features
 
 ### Core Functionality
-- **Single-key Table CRUD Operations**  
-  `insert_one`, `insert_many`, `update_by_key`, `update_by_expr`, `update_one`,  
-  `upsert_by_key`, `upsert_many`, `delete_by_key`, `delete_by_cond`, `delete_many`  
-  `get_one_by_key`, `get_one`, `get_list`, `get_list_paginated`,  
-  `get_list_by_cursor`, `exists`, `count`  
-
-- **Composite-Key Table Operations**  
-  `insert_one`, `insert_many`, `delete_by_keys`, `delete_by_cond`, 
-  `get_one_by_keys`, `get_one`, `get_list`, `get_list_paginated`,  
-  `get_list_by_cursor`, `count`  
+- **CRUD Operations**  
+  `insert_one`, `insert_many`, `update_one`, `update_by_cond`, `upsert_one`, `upsert_many`, `delete_by_pk`, `delete_by_cond`  
+  `get_one_by_pk`, `get_one_by_cond`, `get_list_by_cond`, `get_list_paginated`, `get_list_by_cursor`, `exists`, `count`    
 
 - **Soft Delete Management**  
-  `restore_one`, `restore_many`  
+  `restore_by_pk`, `restore_by_cond`  
   with global configuration
 
 - **Flexible Query Building**  
@@ -27,27 +20,26 @@ A minimalistic SQL builder library for Rust built on [sqlx](https://crates.io/cr
   - **No Macros**: Public interfaces avoid macros, ensuring transparency and maintainability.
   - **No `.unwrap()` or `.expect()`**: Prevents runtime panics by promoting robust error handling.
 
-
 ### Key Advantages
+- 🛠️ **SeaQuery-Like API** - Simplified Query builder 
 - 🚀 **No ORM Overhead** - Direct SQL interaction with builder pattern  
 - 🌍 **Global Filters** - Apply tenant ID or soft delete filters across all queries  
-- 📦 **Extensible** - Easily add custom operations and query modifiers  
 
 ## Quick Start
 
 ### 1. Add Dependency
 ```toml
 # Default SQL Builder, completely decoupled from any external libraries.
-kitx = "0.0.12"
+kitx = "0.0.13"
 
 # For SQLite only, WAL mode is enabled by default.
-kitx = { version = "0.0.12", features = ["sqlite"] }
+kitx = { version = "0.0.13", features = ["sqlite"] }
 
 # For MySQL/MariaDB only
-kitx = { version = "0.0.12", features = ["mysql"] }
+kitx = { version = "0.0.13", features = ["mysql"] }
 
 # For PostgreSQL only
-kitx = { version = "0.0.12", features = ["postgres"] }
+kitx = { version = "0.0.13", features = ["postgres"] }
 ```
 
 ### 2. Basic Usage
@@ -66,7 +58,7 @@ let query = Select::columns(&["id", "name"])
 
 let query2 = Insert::into("users")
     .columns(&["id", "name"])
-    .values(&[22, "John Doe"])
+    .values(vec![22, "John Doe"])
     .build().0;
   
 // CRUD Operations (Single Key)

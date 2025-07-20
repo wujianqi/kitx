@@ -15,6 +15,8 @@ pub struct KitxError {
 pub enum QueryError {
     DBPoolNotInitialized,
     NoPrimaryKeyDefined,
+    SingleKeyTypeInvalid,
+    CompositeKeyTypeInvalid,
     PageNumberInvalid,
     LimitInvalid,
     KeysListEmpty,    
@@ -24,6 +26,7 @@ pub enum QueryError {
     NoValuesProvided,
     PrimaryKeyNotFound(String),
     Other(String),
+    SoftDeleteNotEnabled,
 }
 
 #[cfg(any(feature = "mysql", feature = "sqlite", feature = "postgres"))]
@@ -47,8 +50,10 @@ impl QueryError {
     pub fn message(&self) -> String {
         match self {
             Self::DBPoolNotInitialized => "Database pool not initialized".to_string(),
-            Self::NoPrimaryKeyDefined => "No primary key defined".to_string(),            
+            Self::NoPrimaryKeyDefined => "No primary key defined".to_string(),
             Self::PageNumberInvalid => "Page number and page size must be greater than 0".to_string(),
+            Self::SingleKeyTypeInvalid => "Primary key type must be a single value".to_string(),
+            Self::CompositeKeyTypeInvalid => "Primary key type must be a vector".to_string(),
             Self::LimitInvalid => "Limit must be greater than 0".to_string(),
             Self::KeysListEmpty => "Keys list cannot be empty".to_string(),
             Self::ValueInvalid(column_name) => format!("Field {} has an invalid value", column_name),
@@ -57,6 +62,7 @@ impl QueryError {
             Self::PrimaryKeyNotFound(key_name) => format!("Primary key {} not found", key_name),
             Self::NoValuesProvided => "No values provided".to_string(),
             Self::Other(msg) => msg.to_owned(),
+            Self::SoftDeleteNotEnabled => "Soft delete is not enabled for this table".to_string(),
         }
     }
 }

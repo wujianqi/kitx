@@ -11,19 +11,28 @@ pub enum RelationType {
     ManyToMany,
 }
 
+/// Represents a relation between entities in a database.
 pub struct EntitiesRelation<'a, D> {
     primary_key: &'a D,
     rel_type: RelationType,
 }
 
+/// Implementation of the EntitiesRelation struct.
 impl<'a, D> EntitiesRelation<'a, D>
 where
     D: PartialEq + Debug + 'a,
 {
+    /// Creates a new EntitiesRelation instance.
+    /// # Arguments
+    /// * `rel_type` - The type of relation (OneToOne, OneTo Many, ManyToMany).
+    /// * `primary_key` - The primary key of the entity.
+    /// Returns a new EntitiesRelation instance.
     fn new(rel_type: RelationType, primary_key: &'a D) -> Self {
         Self { rel_type,  primary_key}
     }
 
+    /// Validates the relation between entities.
+    /// It checks whether the number of values matches the relation type and whether the values match the primary key.
     pub fn validate(&self, values: Vec<&'a D>) -> Result<(), Error>
     {
         match self.rel_type {
@@ -67,14 +76,20 @@ where
         Ok(())
     }
 
+    /// Creates a new EntitiesRelation instance for one-to-one relations.
+    /// This relation type allows a single entity to be associated with another single entity.
     pub fn one_to_one(primary_key: &'a D) -> Self {
         Self::new(RelationType::OneToOne, primary_key)
     }
     
+    /// Creates a new EntitiesRelation instance for one-to-many relations.
+    /// This relation type allows one entity to be associated with multiple other entities.
     pub fn one_to_many(primary_key: &'a D) -> Self {
         Self::new(RelationType::OneToMany, primary_key)
     }
     
+    /// Creates a new EntitiesRelation instance for many-to-many relations.
+    /// This relation type allows multiple entities to be associated with multiple other entities.
     pub fn many_to_many(primary_key: &'a D) -> Self {
         Self::new(RelationType::ManyToMany, primary_key)
     }

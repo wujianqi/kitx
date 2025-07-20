@@ -1,8 +1,8 @@
-pub use crate::common::types::{OrderBy, CursorPaginatedResult, PaginatedResult};
+pub use crate::common::types::{OrderBy, PrimaryKey, CursorPaginatedResult, PaginatedResult};
 pub use crate::common::builder::{BuilderTrait, FilterTrait};
 pub use crate::common::error::{KitxError, QueryError, SoftDeleteError, RelationError};
 pub use crate::common::query::QueryExecutor;
-pub use crate::common::operations::OperationsTrait;
+pub use crate::common::operations::{OpsBuilderTrait, OpsActionTrait};
 pub use crate::common::relation::EntitiesRelation;
 pub use crate::sql::filter::{Expr, ColumnExpr};
 pub use crate::sql::{agg::Func, case_when::CaseWhen, cte::{CTE, WithCTE},  join::JoinType};
@@ -14,7 +14,7 @@ pub mod sqlite {
         global::{get_global_filter, set_global_filter, get_global_soft_delete_field, set_global_soft_delete_field},
         kind::DataKind,
         single::Operations,
-        composite::MutliKeyOperations,
+        composite::Operations as MutliKeyOperations,
         query::SqliteQuery as Query,
         Sql, Select, Update, Insert, Delete,
     };
@@ -27,7 +27,7 @@ pub mod mysql {
         global::{get_global_filter, set_global_filter, get_global_soft_delete_field, set_global_soft_delete_field},
         kind::DataKind,
         single::Operations,
-        composite::MutliKeyOperations,
+        composite::Operations as MutliKeyOperations,
         query::MySqlQuery as Query,
         Sql, Select, Update, Insert, Delete,
     };
@@ -40,7 +40,7 @@ pub mod postgres {
         global::{get_global_filter, set_global_filter, get_global_soft_delete_field, set_global_soft_delete_field},
         kind::DataKind,
         single::Operations,
-        composite::MutliKeyOperations,
+        composite::Operations as MutliKeyOperations,
         query::PostgresQuery as Query,
         Sql, Select, Update, Insert, Delete,
     };

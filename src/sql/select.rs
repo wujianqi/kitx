@@ -10,7 +10,7 @@ use super::{
 };
 
 // SELECT-specific builder
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct SelectBuilder<T: Debug + Clone> {
     sql: String,
     columns: Vec<String>,
@@ -20,28 +20,22 @@ pub struct SelectBuilder<T: Debug + Clone> {
     limit_offset: Option<(T, Option<T>)>,
     joins: Vec<JoinType<T>>,
     group_having: Option<(String, Vec<T>)>,
-    table_info: (String, bool),
-    has_alias: bool,
+    table_name: String,
+    alias_name: Option<String>,
+    is_distinct: bool,
 }
 
-impl<T: Debug + Clone> Default for SelectBuilder<T> {
-    fn default() -> Self {
+impl<T: Debug + Clone + Default> SelectBuilder<T> {
+    /// Creates an empty SELECT statement.
+    pub fn empty_columns() -> Self {
         Self {
-            sql: String::with_capacity(256),
+            sql: String::from("SELECT "),
             columns: Vec::new(),
-            values: Vec::new(),
-            where_clauses: Vec::new(),
-            order_by_clauses: HashMap::new(),
-            limit_offset: None,
-            joins: Vec::new(),
-            group_having: None,
-            table_info: (String::new(), false),
-            has_alias: false,
+            is_distinct: false,
+            ..Default::default()
         }
     }
-}
 
-impl<T: Debug + Clone> SelectBuilder<T> {
     /// Specifies the columns for the SELECT statement.
     /// 
     /// # Parameters
@@ -50,35 +44,17 @@ impl<T: Debug + Clone> SelectBuilder<T> {
     /// # Returns
     /// - `SelectBuilder`: Initialized SelectBuilder instance.
     pub fn columns(columns: &[&str]) -> Self {
-        let mut capacity = 7;
-        let mut cols = Vec::with_capacity(capacity);
-        for col in columns {
-            capacity += col.len() + 2;
-            cols.push(col.to_string());
-        }
-        
-        let mut sql = String::with_capacity(capacity);
-        sql.push_str("SELECT ");
-        
-        for (i, col) in columns.iter().enumerate() {
-            if i > 0 {
-                sql.push_str(", ");
-            }
-            sql.push_str(col);
-        }
-        
         Self {
-            sql,
-            columns: cols,
+            sql: String::from("SELECT "),
+            columns: columns.iter().map(|s| s.to_string()).collect(),
+            is_distinct: false,
             ..Default::default()
         }
     }
 
     /// Specifies whether to use DISTINCT in the SELECT statement.
     pub fn distinct(mut self) -> Self {
-        if self.sql.starts_with("SELECT ") {
-            self.sql = self.sql.replacen("SELECT ", "SELECT DISTINCT ", 1);
-        }
+        self.is_distinct = true;
         self
     }
 
@@ -90,18 +66,7 @@ impl<T: Debug + Clone> SelectBuilder<T> {
     /// # Returns
     /// - `SelectBuilder`: Initialized SelectBuilder instance.
     pub fn from(mut self, table: &str) -> Self {
-        if self.columns.is_empty() {
-            self.sql.push_str(" SELECT *");
-            self.table_info.1 = true;
-            self.columns = vec!["*".to_string()];
-        }    
-        
-        let additional_capacity = 6 + table.len();
-        self.sql.reserve(additional_capacity);
-        
-        self.sql.push_str(" FROM ");
-        self.sql.push_str(table);
-        self.table_info.0 = table.to_string();
+        self.table_name = table.to_string();
         self
     }
 
@@ -111,59 +76,29 @@ impl<T: Debug + Clone> SelectBuilder<T> {
         self
     }
 
+    /// Specifies the alias for the table.
     pub fn alias_mut(&mut self, alias: &str) -> &mut Self {
-        if self.has_alias {
+        if alias.is_empty() {
             return self;
-        }
-    
-        let new_capacity = self.sql.len() + alias.len() * 2 + 10;
-        let mut new_sql = String::with_capacity(new_capacity);
-    
-        new_sql.push_str("SELECT ");
-    
-        if self.table_info.1 {
-            new_sql.push_str(alias);
-            new_sql.push_str(".*");
-        } else {
-            fn rewrite_col<'a>(col: &'a str, alias: &str, table: &str) -> Cow<'a, str> {
-                if let Some((prefix, suffix)) = col.split_once('.') {
-                    if prefix == table {
-                        return Cow::Owned(format!("{}.{}", alias, suffix));
-                    }
-                } else if !col.contains('(') && !col.contains(' ') {
-                    return Cow::Owned(format!("{}.{}", alias, col));
-                }
-                Cow::Borrowed(col)
-            }
+        }        
+        self.alias_name = Some(alias.to_string());
 
-            let rewritten_cols: Vec<Cow<'_, str>> = self.columns.iter()
-                .map(|col| rewrite_col(col, alias, &self.table_info.0))
-                .collect();
-    
-            let temp: Vec<&str> = rewritten_cols.iter().map(|cow| cow.as_ref()).collect();
-            new_sql.push_str(&temp.join(", "));
-        }
-    
-        new_sql.push_str(" FROM ");
-        new_sql.push_str(&self.table_info.0);
-        new_sql.push_str(" AS ");
-        new_sql.push_str(alias);
-    
-        if let Some(from_pos) = self.sql.find(" FROM ") {
-            let from_end_pos = from_pos + " FROM ".len() + self.table_info.0.len();
-            if let Some(rest) = self.sql.get(from_end_pos..) {
-                let trimmed = rest.trim_start();
-                if !trimmed.is_empty() {
-                    if !new_sql.ends_with(|c: char| c.is_whitespace()) {
-                        new_sql.push(' ');
-                    }
-                    new_sql.push_str(trimmed);
+        fn rewrite_col<'a>(col: &'a str, alias: &str, table: &str) -> Cow<'a, str> {
+            if let Some((prefix, suffix)) = col.split_once('.') {
+                if prefix == table {
+                    return Cow::Owned(format!("{}.{}", alias, suffix));
                 }
+            } else if !col.contains('(') && !col.contains(' ') {
+                return Cow::Owned(format!("{}.{}", alias, col));
             }
+            Cow::Borrowed(col)
         }
-    
-        self.sql = new_sql;
-        self.has_alias = true;
+
+        let new_columns: Vec<String> = self.columns.iter()
+            .map(|col| rewrite_col(col, alias, &self.table_name).into_owned())
+            .collect();
+
+        self.columns = new_columns;
         self
     }
     
@@ -205,8 +140,8 @@ impl<T: Debug + Clone> SelectBuilder<T> {
     }
 
     pub fn join_mut(&mut self, join_clauses: JoinType<T>) -> &mut Self {
-        if !self.has_alias {
-            let table_name = take(&mut self.table_info.0);
+        if self.alias_name.is_none() {
+            let table_name = self.table_name.clone();
             self.alias_mut(&table_name);
         }
         self.joins.push(join_clauses);
@@ -287,6 +222,7 @@ impl<T: Debug + Clone> SelectBuilder<T> {
         self
     }
 
+    /// Adds a subquery to the SELECT statement.
     pub fn subquery_mut(&mut self, subquery: SelectBuilder<T>, alias: Option<&str>) -> &mut Self {
         let (subquery_sql, subquery_values) = subquery.build();
         let alias_len = alias.map(|a| a.len() + 4).unwrap_or(0);
@@ -321,19 +257,19 @@ impl<T: Debug + Clone> SelectBuilder<T> {
     }
 
     /// Appends a new SQL query and parameter value to the existing query.
-    pub fn append(mut self, sql: impl Into<String>, value: Option<T>)-> Self {
+    pub fn append(mut self, sql: impl Into<String>, value: Vec<T>)-> Self {
         self.append_mut(sql, value);
         self
     }
 
-    pub fn append_mut(&mut self, sql: impl Into<String>, value: Option<T>)-> &mut Self {
-        let sql_str = sql.into();
-        self.sql.reserve(sql_str.len());
-        self.sql.push_str(&sql_str);
+    /// Appends a new SQL query and parameter value to the existing query.
+    pub fn append_mut(&mut self, sql: impl Into<String>, value: Vec<T>)-> &mut Self {
+        let sql = sql.into();
         
-        if let Some(val) = value {
-            self.values.push(val);
-        }
+        self.sql.push_str(&sql);
+        if !value.is_empty() {
+            self.values.extend(value);
+        }        
         self
     }
 
@@ -379,15 +315,34 @@ impl<T: Debug + Clone> FilterTrait<T> for SelectBuilder<T> {
     {
         combine_where_clause(&mut self.where_clauses, filter.into(), true);
         self
-    }    
+    }
 }
 
 impl<T: Debug + Clone> BuilderTrait<T> for SelectBuilder<T> {
     fn build(mut self) -> (String, Vec<T>) {
         let mut values = take(&mut self.values);
-        let mut sql = take(&mut self.sql);
+        let mut sql = String::from("SELECT ");
 
-        // Process JOIN clauses
+        if self.is_distinct {
+            sql.push_str("DISTINCT ");
+        }
+
+        if !self.columns.is_empty() {
+            sql.push_str(&self.columns.join(", "));
+        } else {
+            sql.push('*');
+        }
+
+        if !self.table_name.is_empty() {
+            sql.push_str(" FROM ");
+            sql.push_str(&self.table_name);
+
+            if let Some(ref alias) = self.alias_name {
+                sql.push_str(" AS ");
+                sql.push_str(alias);
+            }
+        }
+
         for join in self.joins.drain(..) {
             let (join_sql, join_values) = join.build();
             sql.push(' ');
@@ -395,7 +350,6 @@ impl<T: Debug + Clone> BuilderTrait<T> for SelectBuilder<T> {
             values.extend(join_values);
         }
 
-        // Process WHERE clauses
         if !self.where_clauses.is_empty() {
             let (where_sql, where_values) = build_where_clause(self.where_clauses);
             sql.push(' ');
@@ -403,20 +357,17 @@ impl<T: Debug + Clone> BuilderTrait<T> for SelectBuilder<T> {
             values.extend(where_values);
         }
 
-        // Process GROUP BY and HAVING clauses
         if let Some((group_having_sql, group_having_values)) = self.group_having {
             sql.push_str(&group_having_sql);
             values.extend(group_having_values);
         }
 
-        // Process ORDER BY clauses
         if !self.order_by_clauses.is_empty() {
             let order_by_sql = build_order_by_clause(&self.order_by_clauses);
             sql.push_str(" ");
             sql.push_str(&order_by_sql);
         }
 
-        // Process LIMIT/OFFSET clauses
         if let Some((limit, offset)) = self.limit_offset {
             let (limit_offset_sql, limit_offset_values) = build_limit_offset_clause(limit, offset);
             sql.push(' ');

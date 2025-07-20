@@ -75,17 +75,18 @@ fn insert_test() {
 
 #[test]
 fn update_test() {
-    let query = UpdateBuilder::<Value>::table("users")
+    let mut query = UpdateBuilder::<Value>::table("users")
         .set_cols(&["name", "age"], vec![
             Value::Text(Cow::Borrowed("John")),
             Value::Int(30),
         ],)
         .and_where(Expr::col("age").eq(23))
         .and_where(Expr::col("salary").gt(45))
-        .or_where(Expr::col("status").is_in(vec!["A", "B"]))
-        .build().0;
+        .or_where(Expr::col("status").is_in(vec!["A", "B"]));
 
-    assert_eq!(query, "UPDATE users SET name = ?, age = ? WHERE age = ? AND salary > ? OR status IN (?, ?)");
+    query.set_expr_mut("view", "view + 1");
+
+    assert_eq!(query.build().0, "UPDATE users SET name = ?, age = ?, view = view + 1 WHERE age = ? AND salary > ? OR status IN (?, ?)");
 }
 #[test]
 fn delete_test() {
@@ -227,7 +228,7 @@ fn upsert_test() {
                 DataKind::from(25),
             ],
         ])
-        .on_conflict_do_update("id", &["name", "age",])
+        .on_conflict_do_update(&["id"], &["name", "age",], None)
         .build().0;
 
     let expected_sql = "INSERT INTO users (id, name, age) VALUES (?, ?, ?) \

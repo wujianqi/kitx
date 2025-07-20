@@ -1,4 +1,6 @@
 use crate::common::builder::BuilderTrait;
+#[cfg(any(feature = "mysql", feature = "sqlite", feature = "postgres"))]
+use crate::sql::filter::Expr;
 use std::fmt::Debug;
 
 use super::{cte::WithCTE, helper::build_returning_clause};
@@ -8,6 +10,7 @@ use super::{cte::WithCTE, helper::build_returning_clause};
 pub struct InsertBuilder<T: Debug + Clone> {
     sql: String,
     values: Vec<T>,
+    pos: Vec<usize>,
 }
 
 impl<T: Debug + Clone> InsertBuilder<T> {
@@ -26,6 +29,7 @@ impl<T: Debug + Clone> InsertBuilder<T> {
         Self {
             sql,
             values: vec![],
+            pos: vec![],
         }
     }
 
@@ -69,6 +73,7 @@ impl<T: Debug + Clone> InsertBuilder<T> {
                     self.sql.push_str(", ");
                 }
                 self.sql.push('?');
+                self.pos.push(self.sql.len());
                 cols_values.push(val);
             }
             self.sql.push(')');
@@ -82,19 +87,18 @@ impl<T: Debug + Clone> InsertBuilder<T> {
     }
 
     /// Appends a new SQL query and parameter value to the existing query.
-    pub fn append(mut self, sql: impl Into<String>, value: Option<T>)-> Self {
+    pub fn append(mut self, sql: impl Into<String>, value: Vec<T>)-> Self {
         self.append_mut(sql, value);
         self
     }
 
-    pub fn append_mut(&mut self, sql: impl Into<String>, value: Option<T>)-> &mut Self {
+    pub fn append_mut(&mut self, sql: impl Into<String>, value: Vec<T>)-> &mut Self {
         let sql = sql.into();
-        let mut values = vec![];
-        if let Some(val) = value {
-            values.push(val);
-        }
+        
         self.sql.push_str(&sql);
-        self.values.extend(values);
+        if !value.is_empty() {
+            self.values.extend(value);
+        }        
         self
     }
 
@@ -116,50 +120,100 @@ impl<T: Debug + Clone> InsertBuilder<T> {
         self
     }
 
+    #[cfg(any(feature = "sqlite", feature = "postgres"))]
     /// Adds an `ON CONFLICT` clause with a `DO UPDATE` action.
-    /// NOTE: Supported in Sqlite 3.24+ 、PostgreSQL、Mysql(`ON DUPLICATE`) only.
-    #[cfg(any(feature = "mysql", feature = "sqlite", feature = "postgres"))]
-    pub fn on_conflict_do_update(self, 
-        conflict_target: &str, 
-        excluded_columns: &[&str]
-    ) -> Self {
-        let mut sql = String::with_capacity(64);
-    
-        #[cfg(any(feature = "sqlite", feature = "postgres"))]
-        {
-            sql.push_str(" ON CONFLICT (");
-            sql.push_str(conflict_target);
-            sql.push_str(") DO UPDATE SET ");
+    /// NOTE: Supported in Sqlite 3.24+ 、PostgreSQL only.
+    pub fn on_conflict_do_update(mut self, conflict_target: &[&str], excluded_columns: &[&str], condition: Option<Expr<T>>) -> Self {
+        let quote = |name: &&str| format!("\"{name}\"");
+        let mut sql = String::with_capacity(80);
+
+        sql.push_str(" ON CONFLICT (");
+        sql.push_str(&conflict_target.iter().map(quote).collect::<Vec<_>>().join(", "));
         
-            // Append the SET clause for excluded columns
-            for (i, column) in excluded_columns.iter().enumerate() {
-                if i > 0 {
-                    sql.push_str(", ");
-                }
-                sql.push_str(column);
-                sql.push_str(" = EXCLUDED.");
-                sql.push_str(column);
-            }
+        sql.push_str(") DO UPDATE SET ");
+        
+        for (i, &col) in excluded_columns.iter().enumerate() {
+            if i > 0 { sql.push_str(", ") }
+            sql.push_str(&format!("\"{col}\" = EXCLUDED.\"{col}\""));
         }
+        self.append_mut(sql, vec![]);
 
-        #[cfg(feature = "mysql")]
-        {
-            let _ = conflict_target;
-            sql.push_str(" ON DUPLICATE KEY UPDATE ");
-
-            for (i, column) in excluded_columns.iter().enumerate() {
-                if i > 0 {
-                    sql.push_str(", ");
-                }
-                sql.push_str(column);
-                sql.push_str(" = VALUES(");
-                sql.push_str(column);
-                sql.push_str(")");
-            }
+        if let Some(expr) = condition {
+            let mut where_cls = String::with_capacity(30);
+            let (cond_sql, cond_values) = expr.build();
+            where_cls.push_str(" WHERE ");
+            where_cls.push_str(&cond_sql);
+            self.append_mut(where_cls, cond_values);
         }
-    
-        self.append(sql, None)
+        self
     }
+
+    /// NOTE: Mysql(`ON DUPLICATE`) only.
+    #[cfg(feature = "mysql")]
+    pub fn on_duplicate(mut self, excluded_columns: &[&str], condition: Option<Expr<T>>) -> Self {
+        let quote = |name: &str| format!("`{}`", name);
+
+        self.sql.push_str(" ON DUPLICATE KEY UPDATE ");
+        for (i, &col) in excluded_columns.iter().enumerate() {
+            if i > 0 {
+                self.sql.push_str(", ");
+            }
+
+            let quoted_col = quote(col);
+            self.sql.push_str(&quoted_col);
+            self.sql.push_str(" = ");
+
+            if let Some(ref expr) = condition {
+                let (cond_sql, cond_values) = expr.clone().build();
+                self.sql.push_str("IF(");
+                self.sql.push_str(&cond_sql);
+                self.sql.push_str(", VALUES(");
+                self.sql.push_str(&quoted_col);
+                self.sql.push_str("), ");
+                self.sql.push_str(&quoted_col);
+                self.sql.push_str(")");
+                self.values.extend(cond_values);
+            } else {
+                self.sql.push_str("VALUES(");
+                self.sql.push_str(&quoted_col);
+                self.sql.push_str(")");
+            }
+        }
+
+        self
+    }
+
+    /// Replaces an expression at a specific index in the SQL string.
+    pub fn replace_expr_at(mut self, index: usize, expr_sql: impl Into<String>) -> Self {
+        self.replace_expr_at_mut(index, expr_sql);
+        self
+    }
+
+    /// Replaces an expression at a specific index in the SQL string, modifying self.
+    pub fn replace_expr_at_mut(&mut self, index: usize, expr_sql: impl Into<String>) -> &mut Self {
+        if index >= self.pos.len() {
+            return self;
+        }
+
+        let expr = expr_sql.into();
+        let replace_pos = match self.pos.get(index) {
+            Some(&pos) => pos,
+            None => return self,
+        };
+
+        self.sql.replace_range(replace_pos - 1..replace_pos, &expr);
+
+        let delta = expr.len() - 1;
+        for pos in &mut self.pos[index + 1..] {
+            *pos += delta;
+        }
+
+        self.values.remove(index);
+        self.pos.remove(index);
+
+        self
+    }
+    
 }
 
 impl<T: Debug + Clone> BuilderTrait<T> for InsertBuilder<T> {

@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fmt::Debug;
 
 use crate::common::builder::{BuilderTrait, FilterTrait};
@@ -8,11 +9,18 @@ use super::filter::Expr;
 use super::helper::{build_returning_clause, build_where_clause, combine_where_clause};
 use super::join::JoinType;
 
+#[derive(Debug, Clone)]
+enum ColumnUpdate<T: Debug + Clone> {
+    Value(T),
+    Expr(String),
+}
+
 // UPDATE-specific builder
 #[derive(Default, Debug, Clone)]
 pub struct UpdateBuilder<T: Debug + Clone> {
     sql: String,
     values: Vec<T>,
+    columns: HashMap<String, ColumnUpdate<T>>,
     where_clauses: Vec<Expr<T>>,
     joins: Vec<JoinType<T>>,
 }
@@ -33,41 +41,32 @@ impl<T: Debug + Clone> UpdateBuilder<T> {
         Self {
             sql,
             values: vec![],
+            columns: HashMap::new(),
             where_clauses: vec![],
             joins: vec![],
         }
     }
 
+    /// Sets a value for a column in the UPDATE statement.
     pub fn set(mut self, column: &str, value: T) -> Self {
-        let mut capacity = column.len() + 4; // column name + " = ?"
-        if !self.values.is_empty() {
-            capacity += 1; // comma
-        }
-        self.sql.reserve(capacity);
-
-        if !self.values.is_empty() {
-            self.sql.push_str(", ");
-        }
-        self.sql.push_str(column);
-        self.sql.push_str(" = ?");
-        self.values.push(value);
+        self.set_mut(column, value);
         self
     }
 
+    /// Sets a value for a column in the UPDATE statement.
+    pub fn set_mut(&mut self, column: &str, value: T) -> &mut Self {
+        self.columns.insert(column.to_string(), ColumnUpdate::Value(value));
+        self
+    }
+
+    /// Sets an expression for a column in the UPDATE statement.
     pub fn set_expr(mut self, column: &str, expr_sql: &str) -> Self {
-        let mut capacity = column.len() + expr_sql.len() + 3; // "col = expr"
-        if !self.values.is_empty() {
-            capacity += 2; // for ", "
-        }
-        self.sql.reserve(capacity);
-    
-        if !self.values.is_empty() {
-            self.sql.push_str(", ");
-        }
-        self.sql.push_str(column);
-        self.sql.push_str(" = ");
-        self.sql.push_str(expr_sql);
-    
+        self.set_expr_mut(column, expr_sql);
+        self
+    }
+
+    pub fn set_expr_mut(&mut self, column: &str, expr_sql: &str) -> &mut Self {
+        self.columns.insert(column.to_string(), ColumnUpdate::Expr(expr_sql.to_string()));
         self
     }
 
@@ -83,21 +82,11 @@ impl<T: Debug + Clone> UpdateBuilder<T> {
     /// # Panics
     /// - If the number of columns does not match the number of values.
     pub fn set_cols(mut self, columns: &[&str], values: Vec<T>) -> Self {
-         let mut capacity = 0;
-        for col in columns {
-            capacity += col.len() + 4; // column name + " = ?"
-        }
-        self.sql.reserve(capacity);
-
-        for (i, col) in columns.iter().enumerate() {
-            if i > 0 {
-                self.sql.push_str(", ");
+        if columns.len() == values.len() {
+            for (col, value) in columns.iter().zip(values.into_iter()) {
+                self.columns.insert((*col).to_string(), ColumnUpdate::Value(value));
             }
-            self.sql.push_str(col);
-            self.sql.push_str(" = ?");
         }
-
-        self.values = values;
         self
     }
 
@@ -131,6 +120,7 @@ impl<T: Debug + Clone> UpdateBuilder<T> {
         self
     }
 
+    /// Adds a JOIN clause to the UPDATE statement.
     pub fn join_mut(&mut self, join_clauses: JoinType<T>) -> &mut Self {
         self.joins.push(join_clauses);
         self
@@ -142,6 +132,7 @@ impl<T: Debug + Clone> UpdateBuilder<T> {
         self
     }
 
+    /// Adds a CASE WHEN clause to the UPDATE statement.
     pub fn case_when_mut(&mut self, case_when: CaseWhen<T>) -> &mut Self {
         let (case_when_sql, case_when_values) = case_when.build();
         self.sql.push_str(", ");
@@ -157,22 +148,21 @@ impl<T: Debug + Clone> UpdateBuilder<T> {
     }
 
     /// Appends a new SQL query and parameter value to the existing query.
-    pub fn append(mut self, sql: impl Into<String>, value: Option<T>)-> Self {
+    pub fn append(mut self, sql: impl Into<String>, value: Vec<T>)-> Self {
         self.append_mut(sql, value);
         self
     }
 
-    pub fn append_mut(&mut self, sql: impl Into<String>, value: Option<T>)-> &mut Self {
+    /// Appends a new SQL query and parameter value to the existing query.
+    pub fn append_mut(&mut self, sql: impl Into<String>, value: Vec<T>)-> &mut Self {
         let sql = sql.into();
-        let mut values = vec![];
-        if let Some(val) = value {
-            values.push(val);
-        }
+        
         self.sql.push_str(&sql);
-        self.values.extend(values);
+        if !value.is_empty() {
+            self.values.extend(value);
+        }
         self
-    }
-    
+    }    
 
     /// Adds a WITH clause to the SELECT statement.
     /// Supported in Mysql 8.0+、Sqlite 3.8.3+ only.
@@ -190,6 +180,7 @@ impl<T: Debug + Clone> UpdateBuilder<T> {
     pub fn take_where_clauses(self) -> Vec<Expr<T>> {
         self.where_clauses
     }
+    
 
 }
 
@@ -220,11 +211,34 @@ impl<T: Debug + Clone> BuilderTrait<T> for UpdateBuilder<T> {
         let mut sql = self.sql;
         let mut values = self.values;
 
+        if !self.columns.is_empty() {
+            let mut first = true;
+            let cols: Vec<_> = self.columns.into_iter().collect();
+            //cols.sort_by(|a, b| a.0.cmp(&b.0));
+
+            for (col, update) in &cols {
+                if !first {
+                    sql.push_str(", ");
+                }
+                first = false;
+                sql.push_str(&col);
+                sql.push_str(" = ");
+                match update {
+                    ColumnUpdate::Value(_) => sql.push('?'),
+                    ColumnUpdate::Expr(expr) => sql.push_str(&expr),
+                }
+            }
+
+            for (_, update) in &cols {
+                if let ColumnUpdate::Value(value) = update {
+                    values.push(value.clone());
+                }
+            }
+        }
+
         if !self.where_clauses.is_empty() {
             let (where_sql, where_values) = build_where_clause(self.where_clauses);
-            if !sql.ends_with(' ') {
-                sql.push(' ');
-            }
+            sql.push(' ');
             sql.push_str(&where_sql);
             values.extend(where_values);
         }

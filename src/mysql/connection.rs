@@ -3,14 +3,25 @@ use crate::common::error::QueryError;
 use sqlx::{Pool, MySql};
 use sqlx::{pool::PoolOptions, Error, MySqlPool};
 use sqlx::mysql::{MySqlConnectOptions, MySqlSslMode};
+use std::cmp::max;
 use std::str::FromStr;
 use std::sync::Arc;
 use tokio::sync::OnceCell;
 use std::time::Duration;
 
-use crate::utils::db;
-
 static DB_POOL: OnceCell<Arc<MySqlPool>> = OnceCell::const_new();
+
+fn connect_limits() -> (u32, u32, u32) {
+    let percentage = Some(20);
+    let num_cpus = num_cpus::get() as u32;
+    let max_connections = max(10, num_cpus * 2);
+    let min_connections = max(2, num_cpus / 2);
+    let warmup_connections = percentage.map_or(0, |perc| {
+        (max_connections as f32 * (perc as f32 / 100.0)).ceil() as u32
+    });
+    
+    (max_connections, min_connections, warmup_connections)
+}
 
 /// Initializes the database connection pool with custom settings.
 pub async fn setup_db_pool(pool: Pool<MySql>) -> Result<&'static MySqlPool, Error> {
@@ -24,7 +35,7 @@ pub async fn setup_db_pool(pool: Pool<MySql>) -> Result<&'static MySqlPool, Erro
 
 /// Initializes the database connection pool with a database URL.
 pub async fn create_db_pool(database_url: &str) -> Result<&'static MySqlPool, Error> {
-    let (maxc, minc, warmupc) = db::connect_limits(Some(20));
+    let (maxc, minc, warmupc) = connect_limits();
 
     let connect_options = MySqlConnectOptions::from_str(database_url)
         .map_err(|e| Error::from(e))?

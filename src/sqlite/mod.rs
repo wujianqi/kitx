@@ -7,9 +7,9 @@ pub mod composite;
 
 use crate::sql::query_builder::SqlBuilder;
 use crate::sql::delete::DeleteBuilder;
-use crate::sql::insert::InsertBuilder;
 use crate::sql::select::SelectBuilder;
 use crate::sql::update::UpdateBuilder;
+use crate::sql::insert::InsertBuilder;
 use kind::DataKind;
 
 pub type Sql<'a> = SqlBuilder<DataKind<'a>>;

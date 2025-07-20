@@ -7,7 +7,6 @@ use tokio::sync::OnceCell;
 use std::time::Duration;
 
 use crate::common::error::QueryError;
-use crate::utils::db;
 
 // Global static variable to store the database connection pool
 static DB_POOL: OnceCell<Arc<SqlitePool>> = OnceCell::const_new();
@@ -24,7 +23,6 @@ pub async fn setup_db_pool<'a>(pool: Pool<Sqlite>) -> Result<&'a SqlitePool, Err
 
 /// Initializes the database connection pool with the database URL and enables WAL mode.
 pub async fn create_db_pool(database_url: &str) -> Result<&SqlitePool, Error> {
-    let (maxc, minc, _) = db::connect_limits(None);
 
     let connect_options = SqliteConnectOptions::from_str(database_url)
         .map_err(|e| Error::from(e))?
@@ -34,8 +32,8 @@ pub async fn create_db_pool(database_url: &str) -> Result<&SqlitePool, Error> {
         .busy_timeout(Duration::from_secs(8));
 
     let pool = PoolOptions::new()
-        .max_connections(maxc)
-        .min_connections(minc)
+        .max_connections(8)
+        .min_connections(1)
         .acquire_timeout(Duration::from_secs(8))
         .idle_timeout(Duration::from_secs(30))
         .test_before_acquire(false)

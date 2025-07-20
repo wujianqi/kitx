@@ -33,13 +33,11 @@ impl Article {
         content: Option<String>,
     ) -> Self {
         Article {
-            id: 0,
             tenant_id,
             title: title.to_string(),
             content,
-            views: 0,
-            deleted: false,
-            created_at: chrono::Utc::now().naive_utc().into(),
+            created_at: Some(chrono::Local::now().naive_local()),
+            ..Default::default()
         }
     }
 }
@@ -61,10 +59,8 @@ impl ArticleTag {
         tag: &str,
     ) -> Self {
         ArticleTag {
-            article_id: 0,
-            share_seq: 0,
             tag: tag.to_string(),
-            created_at: None,
+            ..Default::default()
         }
     }
 }
