@@ -4,7 +4,6 @@
 //! database entities. It includes structures and enums for defining relationship types
 //! and validating entity relationships according to business rules.
 //! 
-//! # 中文
 //! 数据库实体关系管理
 //! 
 //! 该模块提供了管理和验证数据库实体间关系的工具。
@@ -29,7 +28,6 @@ pub enum RelationType {
 /// # Type Parameters
 /// * `D` - The data type of the primary key
 /// 
-/// # 中文
 /// 表示数据库中的实体之间的关系，用于验证。
 /// 
 /// # 类型参数
@@ -40,7 +38,6 @@ pub struct EntitiesRelation<'a, D> {
 }
 
 /// Implementation of the EntitiesRelation struct.
-/// # 中文
 /// EntitiesRelation结构体关系的实现。
 impl<'a, D> EntitiesRelation<'a, D>
 where
@@ -51,7 +48,6 @@ where
     /// * `rel_type` - The type of relation (OneToOne, OneTo Many, ManyToMany).
     /// * `primary_key` - The primary key of the entity.
     /// Returns a new EntitiesRelation instance.
-    /// # 中文
     /// 创建一个新的EntitiesRelation实例。
     /// 
     /// # 参数
@@ -76,7 +72,6 @@ where
     /// * [Ok] if validation passes
     /// * [Err] with a detailed error if validation fails
     /// 
-    /// # 中文
     /// 验证实体之间的关系。
     /// 
     /// 检查值的数量是否与关系类型匹配，以及值是否与主键匹配。
@@ -140,7 +135,6 @@ where
     /// # Returns
     /// A new EntitiesRelation instance with OneToOne relationship type
     /// 
-    /// # 中文
     /// 创建一对一关系的EntitiesRelation实例。
     /// 
     /// 此关系类型允许单个实体与另一个单个实体关联。
@@ -164,7 +158,6 @@ where
     /// # Returns
     /// A new EntitiesRelation instance with OneToMany relationship type
     /// 
-    /// # 中文
     /// 创建一对多关系的EntitiesRelation实例。
     /// 
     /// 此关系类型允许一个实体与多个其他实体关联。
@@ -188,7 +181,6 @@ where
     /// # Returns
     /// A new EntitiesRelation instance with ManyToMany relationship type
     /// 
-    /// # 中文
     /// 创建多对多关系的EntitiesRelation实例。
     /// 
     /// 此关系类型允许多个实体与多个其他实体关联。

@@ -27,8 +27,6 @@ use std::any::Any;
 /// Implementations should handle type conversion errors gracefully and provide
 /// sensible defaults when conversion fails.
 /// 
-/// # 中文
-/// 
 /// 从动态 `Any` 引用转换值到特定类型的trait。
 /// 
 /// 该trait提供了将运行时值转换为强类型数据结构的统一接口。
@@ -55,8 +53,7 @@ pub trait ValueConvert
     /// 
     /// An instance of the implementing type, constructed from the input value
     /// 
-    /// # 中文
-    /// 
+        /// 
     /// 将动态值引用转换为实现类型。
     /// 
     /// # 参数
@@ -90,8 +87,7 @@ pub trait ValueConvert
     /// assert_eq!(SomeType::is_default_value(&42), false);
     /// ```
     /// 
-    /// # 中文
-    /// 
+        /// 
     /// 检查值是否表示默认的主键值。
     /// 
     /// 此方法用于确定值是否应被视为"默认"或"空"主键，
@@ -154,8 +150,6 @@ pub trait ValueConvert
 /// assert_eq!(unwrap_option::<String>(&direct), Some(&"Direct".to_string()));
 /// assert_eq!(unwrap_option::<String>(&empty), None);
 /// ```
-/// 
-/// # 中文
 /// 
 /// 递归解包任意数量的Option层并返回内部值（如果存在的话）的辅助函数。
 /// 
@@ -266,8 +260,6 @@ pub fn unwrap_option<T: 'static>(value: &dyn Any) -> Option<&T> {
 /// assert_eq!(is_empty_or_none(&empty_vec), true);            // Empty vector
 /// assert_eq!(is_empty_or_none(&filled_vec), false);          // Non-empty vector
 /// ```
-/// 
-/// # 中文
 /// 
 /// 检查值是否为空并使用闭包处理Option类型的辅助函数。
 /// 

@@ -3,7 +3,6 @@
 //! This module provides utility functions and structures that support 
 //! database operations, including type name conversion and query condition management.
 //! 
-//! # 中文
 //! 数据库操作辅助工具
 //! 
 //! 该模块提供了支持数据库操作的实用函数和结构体，
@@ -22,7 +21,6 @@ use std::{any::type_name, marker::PhantomData, sync::Arc};
 /// # Returns
 /// Name of the given type in snake_case format
 /// 
-/// # 中文
 /// 返回给定类型的名称
 /// 
 /// 此函数将 Rust 类型名称转换为 snake_case 表名。
@@ -67,7 +65,6 @@ pub fn get_table_name<T>() -> String {
 /// * `Q` - Query type
 /// * `F` - Function type that implements the query condition
 /// 
-/// # 中文
 /// 查询条件包装器，用于并发复用
 /// 
 /// 此结构体包装查询条件闭包以实现安全的并发使用。
@@ -95,7 +92,6 @@ where
     /// # Returns
     /// A new QueryCondition instance
     /// 
-    /// # 中文
     /// 创建一个新的查询条件包装器
     /// 
     /// # 参数
@@ -115,7 +111,6 @@ where
     /// # Returns
     /// A clone of the wrapped query condition closure
     /// 
-    /// # 中文
     /// 获取查询条件闭包
     /// 
     /// # 返回值

@@ -5,7 +5,6 @@
 //! It supports connection pooling with automatic configuration based on system resources,
 //! SSL configuration, and connection warmup for optimal performance.
 //! 
-//! # 中文
 //! MySQL 数据库连接管理模块
 //! 
 //! 该模块提供了管理 MySQL 数据库连接的功能，
@@ -31,7 +30,6 @@ static DB_POOL: OnceCell<Arc<MySqlPool>> = OnceCell::const_new();
 /// # Returns
 /// A tuple containing (max_connections, min_connections, warmup_connections)
 /// 
-/// # 中文
 /// 根据 CPU 核心数计算连接限制
 /// 
 /// # 返回值
@@ -53,7 +51,6 @@ fn connect_limits() -> (u32, u32, u32) {
 /// # Returns
 /// A reference to the static MySQL pool or an error
 /// 
-/// # 中文
 /// 使用自定义设置初始化数据库连接池
 /// 
 /// # 参数
@@ -78,7 +75,6 @@ pub async fn setup_db_pool(pool: Pool<MySql>) -> Result<&'static MySqlPool, Erro
 /// # Returns
 /// A reference to the static MySQL pool or an error
 /// 
-/// # 中文
 /// 使用数据库 URL 初始化数据库连接池
 /// 
 /// # 参数
@@ -126,7 +122,6 @@ pub async fn create_db_pool(database_url: &str) -> Result<&'static MySqlPool, Er
 /// # Returns
 /// Ok(()) on success or an error
 /// 
-/// # 中文
 /// 通过获取和释放连接来预热数据库连接
 /// 
 /// # 参数
@@ -148,7 +143,6 @@ async fn warmup_connect(pool: &MySqlPool, warmup_num: u32) -> Result<(), Error> 
 /// # Returns
 /// A cloned Arc reference to the MySQL pool or an error if not initialized
 /// 
-/// # 中文
 /// 获取数据库连接池的引用
 /// 
 /// # 返回值

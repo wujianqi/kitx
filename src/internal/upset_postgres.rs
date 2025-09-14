@@ -16,7 +16,6 @@ use crate::common::{
 /// * `DB` - Database type that implements sqlx::Database trait
 /// * `VAL` - Value type that implements Encode, Type, and ValueConvert traits
 /// 
-/// # 中文
 /// PostgreSQL 更新插入查询构建器
 /// 
 /// 该结构体提供了构建 PostgreSQL 特定的 UPSERT (INSERT ... ON CONFLICT) SQL 查询的功能。
@@ -50,7 +49,6 @@ where
     /// # Returns
     /// A QueryBuilder with the UPSERT query or an Error
     /// 
-    /// # 中文
     /// 创建多条记录更新插入操作
     /// 
     /// # 参数
@@ -117,7 +115,6 @@ where
     /// # Returns
     /// A QueryBuilder with the UPSERT query or an Error
     /// 
-    /// # 中文
     /// 创建单条记录更新插入操作
     /// 
     /// # 参数

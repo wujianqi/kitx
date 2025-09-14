@@ -13,7 +13,6 @@ use sqlx::{Database, Encode, Error, QueryBuilder, Type};
 /// * `DB` - Database type that implements sqlx::Database trait
 /// * `VAL` - Value type that implements Encode and Type traits
 /// 
-/// # 中文
 /// 查询构建器
 /// 
 /// 该结构体提供了构建 SELECT SQL 查询的功能。
@@ -48,7 +47,6 @@ where
     /// # Returns
     /// A new Select instance
     /// 
-    /// # 中文
     /// 创建新的 Select 实例
     /// 
     /// # 参数
@@ -71,7 +69,6 @@ where
     /// # Returns
     /// A new Select instance with default field selection
     /// 
-    /// # 中文
     /// 创建带有默认字段的 Select 实例
     /// 
     /// # 返回值
@@ -92,7 +89,6 @@ where
     /// # Returns
     /// A new Select instance with custom field selection
     /// 
-    /// # 中文
     /// 创建带有自定义字段的 Select 实例
     /// 
     /// # 参数
@@ -117,7 +113,6 @@ where
     /// # Returns
     /// The Select instance with the table added
     /// 
-    /// # 中文
     /// 向查询中添加表
     /// 
     /// # 参数
@@ -142,7 +137,6 @@ where
     /// # Returns
     /// The Select instance with the default table added
     /// 
-    /// # 中文
     /// 向查询中添加默认表
     /// 
     /// # 返回值
@@ -159,7 +153,6 @@ where
     /// # Returns
     /// The Select instance with the table added
     /// 
-    /// # 中文
     /// 向查询中添加自定义表，可以包含别名，介于 FROM 和 WHERE 之间
     /// 
     /// # 参数
@@ -180,7 +173,6 @@ where
     /// # Returns
     /// A QueryBuilder with the SELECT query or an Error
     /// 
-    /// # 中文
     /// 通过主键查询
     /// 
     /// # 参数
@@ -212,7 +204,6 @@ where
     /// # Returns
     /// The Select instance with the filter conditions added
     /// 
-    /// # 中文
     /// 使用自定义过滤条件查询，介于 WHERE 和 ORDER BY 之间
     /// 
     /// # 参数
@@ -240,7 +231,6 @@ where
     /// # Returns
     /// The Select instance with sorting added
     /// 
-    /// # 中文
     /// 使用原始SQL文本添加自定义排序
     /// 
     /// # 参数
@@ -274,7 +264,6 @@ where
     /// # Returns
     /// A QueryBuilder with the SELECT query or an Error
     /// 
-    /// # 中文
     /// 向查询中添加分页
     /// 
     /// # 参数
@@ -325,7 +314,6 @@ where
     /// # Returns
     /// A QueryBuilder with the SELECT query or an Error
     /// 
-    /// # 中文
     /// 游标分页查询（仅支持单主键），过滤条件可以和 where_ 混合
     /// 
     /// # 参数
@@ -381,7 +369,6 @@ where
     /// # Returns
     /// The inner QueryBuilder instance
     /// 
-    /// # 中文
     /// 转换为原始 QueryBuilder
     /// 
     /// # 返回值

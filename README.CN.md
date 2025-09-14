@@ -1,6 +1,6 @@
 # 🛠️ Kitx - 基于rust Sqlx的快速增删改查工具包
 
-🌐 中文 | [English](README.md) 
+🌐 中文 | [English](https://github.com/wujianqi/kitx/blob/main/README.md) 
 
 **基于 `sqlx::QueryBuilder` 封装的 CRUD 操作和工具包** 
 
@@ -108,6 +108,6 @@ async fn test_find_all() {
 
 
 💡 **说明**: 
-> Kitx本质是将语句按关键词分割、组成链式操作，如："SELECT {} FROM {} WHERE {}"，然后利用实体模型数据解构，自动填充{}，如无法满足条件就则使用手动填充，即fn(QueryBuilder)，手动填充可使用别名、关联查询、嵌套子句等；
-> 部分直接操作实体模型的方法，名为many、one的方法，无法使用手动，且表名（蛇形命名）为与实体模型结构体名（驼峰命名）必须是对应关系。
+> Kitx本质是将语句按关键词分割、组成链式操作，如："SELECT {} FROM {} WHERE {}"，然后利用实体模型数据解构，自动填充{}，如无法满足条件就则使用手动填充，即fn(QueryBuilder)，手动填充可使用别名、关联查询、嵌套子句等；  
+> 部分直接操作实体模型的方法，名为many、one的方法，无法使用手动，且表名（蛇形命名）为与实体模型结构体名（驼峰命名）必须是对应关系。  
 > 每个方法都经过了单元侧试，确保功能正常。

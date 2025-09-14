@@ -16,7 +16,6 @@ use crate::common::{
 /// * `DB` - Database type that implements sqlx::Database trait
 /// * `VAL` - Value type that implements Encode and Type traits
 /// 
-/// # 中文
 /// 更新查询构建器
 /// 
 /// 该结构体提供了构建 UPDATE SQL 查询的功能。
@@ -36,7 +35,6 @@ where
 /// Update operations
 /// Creates UPDATE + SET + WHERE queries
 /// 
-/// # 中文
 /// 更新操作
 /// 创建 UPDATE + SET + WHERE 查询
 impl<'a, ET, DB, VAL> Update<'a, ET, DB, VAL>
@@ -53,7 +51,6 @@ where
     /// # Returns
     /// A new Update instance
     /// 
-    /// # 中文
     /// 创建基础查询
     /// 
     /// # 参数
@@ -76,7 +73,6 @@ where
     /// # Returns
     /// A new Update instance with the default table name
     /// 
-    /// # 中文
     /// 创建使用默认表名的 Update 实例
     /// 
     /// # 返回值
@@ -93,7 +89,6 @@ where
     /// # Returns
     /// A new Update instance with the specified table name
     /// 
-    /// # 中文
     /// 创建使用自定义表名的 Update 实例，可以包含别名，介于 FROM 和 WHERE 之间
     /// 
     /// # 参数
@@ -118,7 +113,6 @@ where
     /// # Returns
     /// A QueryBuilder with the UPDATE query or an Error
     /// 
-    /// # 中文
     /// 创建单个实体更新操作
     /// 
     /// # 参数
@@ -178,7 +172,6 @@ where
     /// # Returns
     /// The Update instance with the SET part added
     /// 
-    /// # 中文
     /// 自定义 SET 列
     /// 
     /// # 参数
@@ -202,7 +195,6 @@ where
     /// # Returns
     /// A QueryBuilder with the UPDATE query or an Error
     /// 
-    /// # 中文
     /// 向查询中添加 WHERE 条件
     /// 
     /// # 参数
@@ -227,7 +219,6 @@ where
     /// # Returns
     /// The inner QueryBuilder instance
     /// 
-    /// # 中文
     /// 获取内部的 QueryBuilder
     /// 
     /// # 返回值

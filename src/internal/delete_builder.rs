@@ -16,7 +16,6 @@ use crate::common::{
 /// * `DB` - Database type that implements sqlx::Database trait
 /// * `VAL` - Value type that implements Encode and Type traits
 /// 
-/// # 中文
 /// 删除查询构建器
 /// 
 /// 该结构体提供了构建 DELETE SQL 查询的功能。
@@ -47,7 +46,6 @@ where
     /// # Returns
     /// A new Delete instance
     /// 
-    /// # 中文
     /// 使用指定的表名创建新的 Delete 实例
     /// 
     /// # 参数
@@ -70,7 +68,6 @@ where
     /// # Returns
     /// A new Delete instance with the default table name
     /// 
-    /// # 中文
     /// 创建使用从实体类型派生的默认表名的 Delete 实例
     /// 
     /// # 返回值
@@ -87,7 +84,6 @@ where
     /// # Returns
     /// A new Delete instance with the specified table name
     /// 
-    /// # 中文
     /// 使用自定义表名创建 Delete 实例
     /// 
     /// # 参数
@@ -108,7 +104,6 @@ where
     /// # Returns
     /// A QueryBuilder with the DELETE query or an Error
     /// 
-    /// # 中文
     /// 通过主键创建 DELETE 查询
     /// 
     /// # 参数
@@ -137,7 +132,6 @@ where
     /// # Returns
     /// A QueryBuilder with the DELETE query or an Error
     /// 
-    /// # 中文
     /// 创建带有自定义 WHERE 条件的 DELETE 查询
     /// 
     /// # 参数

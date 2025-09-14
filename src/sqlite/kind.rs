@@ -5,7 +5,6 @@
 //! the mapping between Rust types and SQLite data types, including text, integer, real, blob,
 //! date/time, boolean, JSON, and UUID types.
 //! 
-//! 中文：
 //! SQLite 数据库操作的数据类型定义和转换。
 //! 
 //! 本模块提供了 [DataKind] 枚举，用于表示 SQLite 支持的各种数据库字段类型，
@@ -49,7 +48,7 @@ pub enum DataKind {
     /// Boolean type.
     Bool(bool), // SQLite: BOOLEAN (internally stored as INTEGER)
 
-    /// JSON type (unstructured JSON data) - stored as Arc<Value> for zero-copy cloning
+    /// JSON type (unstructured JSON data) - stored as `Arc<Value>` for zero-copy cloning
     Json(Arc<Value>), // SQLite: TEXT (JSON stored as text)
 
     /// UUID type (stored as BLOB or TEXT).

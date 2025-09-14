@@ -5,7 +5,6 @@
 //! the mapping between Rust types and PostgreSQL data types, including numeric, string, binary,
 //! date/time, network, UUID, and JSON types.
 //! 
-//! 中文：
 //! PostgreSQL 数据库操作的数据类型定义和转换。
 //! 
 //! 本模块提供了 [DataKind] 枚举，用于表示 PostgreSQL 支持的各种数据库字段类型，

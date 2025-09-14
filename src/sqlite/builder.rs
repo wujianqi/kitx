@@ -5,7 +5,6 @@
 //! Delete, Select, and Upsert operations, making it easier to work with SQLite-specific
 //! database operations in a type-safe manner.
 //! 
-//! # 中文
 //! SQLite 查询构建器模块
 //! 
 //! 该模块提供了构建 SQLite 数据库查询的类型别名和实用工具。
@@ -16,35 +15,35 @@ use sqlx::{QueryBuilder, Sqlite};
 
 use crate::{internal::{delete_builder, insert_builder, select_builder, subquery, update_builder, upset_sqlite}, sqlite::kind::DataKind};
 
-/// QueryBuilder type alias for SQLite
+/// QueryBuilder type alias for SQLite  
 /// SQLite 的 QueryBuilder 类型别名
 pub type QB<'a> = QueryBuilder<'a, Sqlite>;
 
-/// SubqueryBuilder type alias for SQLite
+/// SubqueryBuilder type alias for SQLite  
 /// SQLite 的 SubqueryBuilder 类型别名
 pub type SQB<'a> = subquery::SubqueryBuilder<'a, DataKind>;
 
-/// Subquery type alias for SQLite
+/// Subquery type alias for SQLite  
 /// SQLite 的 Subquery 类型别名
 pub type Subquery<'a, ET> = subquery::Subquery<'a, ET, DataKind>;
 
-/// Insert builder type alias for SQLite
+/// Insert builder type alias for SQLite  
 /// SQLite 的 Insert 构建器类型别名
 pub type Insert<'a, ET> = insert_builder::Insert<'a, ET, Sqlite, DataKind>;
 
-/// Update builder type alias for SQLite
+/// Update builder type alias for SQLite  
 /// SQLite 的 Update 构建器类型别名
 pub type Update<'a, ET> = update_builder::Update<'a, ET, Sqlite, DataKind>;
 
-/// Delete builder type alias for SQLite
+/// Delete builder type alias for SQLite  
 /// SQLite 的 Delete 构建器类型别名
 pub type Delete<'a, ET> = delete_builder::Delete<'a, ET, Sqlite, DataKind>;
 
-/// Select builder type alias for SQLite
+/// Select builder type alias for SQLite  
 /// SQLite 的 Select 构建器类型别名
 pub type Select<'a, ET> = select_builder::Select<'a, ET, Sqlite, DataKind>;
 
-/// Upsert builder type alias for SQLite
+/// Upsert builder type alias for SQLite  
 /// SQLite 的 Upsert 构建器类型别名
 pub type Upset<'a, ET> = upset_sqlite::Upset<'a, ET, Sqlite, DataKind>;
 

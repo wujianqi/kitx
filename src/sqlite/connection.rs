@@ -5,7 +5,6 @@
 //! It supports connection pooling with automatic configuration and enables
 //! WAL (Write-Ahead Logging) mode for better concurrency and performance.
 //! 
-//! # 中文
 //! SQLite 数据库连接管理模块
 //! 
 //! 该模块提供了管理 SQLite 数据库连接的功能，
@@ -34,7 +33,6 @@ static DB_POOL: OnceCell<Arc<SqlitePool>> = OnceCell::const_new();
 /// # Returns
 /// A reference to the static SQLite pool or an error
 /// 
-/// # 中文
 /// 使用自定义连接池初始化连接池
 /// 
 /// # 参数
@@ -59,7 +57,6 @@ pub async fn setup_db_pool<'a>(pool: Pool<Sqlite>) -> Result<&'a SqlitePool, Err
 /// # Returns
 /// A reference to the static SQLite pool or an error
 /// 
-/// # 中文
 /// 使用数据库 URL 初始化数据库连接池并启用 WAL 模式
 /// 
 /// # 参数
@@ -94,7 +91,6 @@ pub async fn create_db_pool(database_url: &str) -> Result<&SqlitePool, Error> {
 /// # Returns
 /// A cloned Arc reference to the SQLite pool or an error if not initialized
 /// 
-/// # 中文
 /// 获取数据库连接池的引用
 /// 
 /// # 返回值

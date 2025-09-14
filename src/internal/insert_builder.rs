@@ -16,7 +16,6 @@ use crate::common::{
 /// * `DB` - Database type that implements sqlx::Database trait
 /// * `VAL` - Value type that implements Encode, Type, and ValueConvert traits
 /// 
-/// # 中文
 /// 插入查询构建器
 /// 
 /// 该结构体提供了构建 INSERT SQL 查询的功能。
@@ -48,7 +47,6 @@ where
     /// # Returns
     /// A new Insert instance
     /// 
-    /// # 中文
     /// 创建自定义表与列，介于 INTO 和 VALUES 之间
     /// 
     /// # 参数
@@ -75,7 +73,6 @@ where
     /// # Returns
     /// A QueryBuilder with the INSERT query or an Error
     /// 
-    /// # 中文
     /// 创建多条记录插入操作
     /// 
     /// # 参数
@@ -124,7 +121,6 @@ where
     /// # Returns
     /// A QueryBuilder with the INSERT query or an Error
     /// 
-    /// # 中文
     /// 创建单条记录插入操作
     /// 
     /// # 参数
@@ -149,7 +145,6 @@ where
     /// # Returns
     /// A QueryBuilder with the INSERT query or an Error
     /// 
-    /// # 中文
     /// 自定义 VALUES 或与值相关的查询语句
     /// 
     /// # 参数
@@ -172,7 +167,6 @@ where
     /// # Returns
     /// The inner QueryBuilder instance
     /// 
-    /// # 中文
     /// 获取内部的 QueryBuilder
     /// 
     /// # 返回值

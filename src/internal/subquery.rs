@@ -11,7 +11,6 @@ use crate::common::helper::get_table_name;
 /// * [Text](SubqueryPart::Text) - Text fragment
 /// * [Bind](SubqueryPart::Bind) - Binding value
 /// 
-/// # 中文
 /// 子查询片段类型：严格区分文本和绑定操作
 /// 
 /// # 变体
@@ -34,7 +33,6 @@ enum SubqueryPart<VAL> {
 /// * `ET` - Entity type that implements FieldAccess and Default traits
 /// * `VAL` - Value type
 /// 
-/// # 中文
 /// 专用于嵌套子查询的结构体
 /// 
 /// 特点：
@@ -67,7 +65,6 @@ where
     /// # Returns
     /// A new Subquery instance with default field selection
     /// 
-    /// # 中文
     /// 添加 SELECT 字段（默认所有字段）
     /// 
     /// # 返回值
@@ -89,7 +86,6 @@ where
     /// # Returns
     /// A new Subquery instance with custom field selection
     /// 
-    /// # 中文
     /// 自定义 SELECT 字段
     /// 
     /// # 参数
@@ -117,7 +113,6 @@ where
     /// # Returns
     /// The Subquery instance with the table added
     /// 
-    /// # 中文
     /// 向子查询中添加表
     /// 
     /// # 参数
@@ -140,7 +135,6 @@ where
     /// # Returns
     /// The Subquery instance with the default table added
     /// 
-    /// # 中文
     /// 向子查询中添加默认表
     /// 
     /// # 返回值
@@ -157,7 +151,6 @@ where
     /// # Returns
     /// The Subquery instance with the table added
     /// 
-    /// # 中文
     /// 向子查询中添加表，可以包含别名，介于 FROM 和 WHERE 之间
     /// 
     /// # 参数
@@ -177,7 +170,6 @@ where
     /// # Returns
     /// The Subquery instance with the WHERE conditions added
     /// 
-    /// # 中文
     /// 添加 WHERE 条件（使用自定义 Builder）
     /// 
     /// # 参数
@@ -211,7 +203,6 @@ where
     /// # Type Parameters
     /// * `DB` - Database type that implements sqlx::Database trait
     /// 
-    /// # 中文
     /// 将子查询嵌入到父查询构建器中
     /// 
     /// # 关键保证
@@ -252,7 +243,6 @@ where
 /// # Type Parameters
 /// * `VAL` - Value type
 /// 
-/// # 中文
 /// 专用于子查询构建的 Builder
 /// 
 /// 特点：
@@ -275,7 +265,6 @@ impl<'a, VAL> SubqueryBuilder<'a, VAL> {
     /// # Returns
     /// A mutable reference to self for chaining
     /// 
-    /// # 中文
     /// 添加纯文本片段
     /// 
     /// # 参数
@@ -300,7 +289,6 @@ impl<'a, VAL> SubqueryBuilder<'a, VAL> {
     /// # Returns
     /// A mutable reference to self for chaining
     /// 
-    /// # 中文
     /// 添加绑定值
     /// 
     /// # 参数

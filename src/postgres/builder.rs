@@ -5,7 +5,6 @@
 //! Delete, Select, and Upsert operations, making it easier to work with PostgreSQL-specific
 //! database operations in a type-safe manner.
 //! 
-//! # 中文
 //! PostgreSQL 查询构建器模块
 //! 
 //! 该模块提供了构建 PostgreSQL 数据库查询的类型别名和实用工具。
@@ -16,35 +15,35 @@ use sqlx::{QueryBuilder, Postgres};
 
 use crate::{internal::{delete_builder, insert_builder, select_builder, subquery, update_builder, upset_postgres}, postgres::kind::DataKind};
 
-/// QueryBuilder type alias for PostgreSQL
+/// QueryBuilder type alias for PostgreSQL  
 /// PostgreSQL 的 QueryBuilder 类型别名
 pub type QB<'a> = QueryBuilder<'a, Postgres>;
 
-/// SubqueryBuilder type alias for PostgreSQL
+/// SubqueryBuilder type alias for PostgreSQL  
 /// PostgreSQL 的 SubqueryBuilder 类型别名
 pub type SQB<'a> = subquery::SubqueryBuilder<'a, DataKind>;
 
-/// Subquery type alias for PostgreSQL
+/// Subquery type alias for PostgreSQL  
 /// PostgreSQL 的 Subquery 类型别名
 pub type Subquery<'a, ET> = subquery::Subquery<'a, ET, DataKind>;
 
-/// Insert builder type alias for PostgreSQL
+/// Insert builder type alias for PostgreSQL  
 /// PostgreSQL 的 Insert 构建器类型别名
 pub type Insert<'a, ET> = insert_builder::Insert<'a, ET, Postgres, DataKind>;
 
-/// Update builder type alias for PostgreSQL
+/// Update builder type alias for PostgreSQL  
 /// PostgreSQL 的 Update 构建器类型别名
 pub type Update<'a, ET> = update_builder::Update<'a, ET, Postgres, DataKind>;
 
-/// Delete builder type alias for PostgreSQL
+/// Delete builder type alias for PostgreSQL  
 /// PostgreSQL 的 Delete 构建器类型别名
 pub type Delete<'a, ET> = delete_builder::Delete<'a, ET, Postgres, DataKind>;
 
-/// Select builder type alias for PostgreSQL
+/// Select builder type alias for PostgreSQL  
 /// PostgreSQL 的 Select 构建器类型别名
 pub type Select<'a, ET> = select_builder::Select<'a, ET, Postgres, DataKind>;
 
-/// Upsert builder type alias for PostgreSQL
+/// Upsert builder type alias for PostgreSQL  
 /// PostgreSQL 的 Upsert 构建器类型别名
 pub type Upset<'a, ET> = upset_postgres::Upset<'a, ET, Postgres, DataKind>;
 

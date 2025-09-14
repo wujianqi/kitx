@@ -5,7 +5,6 @@
 //! All errors implement proper error traits and can be converted between
 //! different error types for seamless integration with sqlx.
 //! 
-//! # 中文
 //! Kitx数据库操作的错误处理模块。
 //! 
 //! 此模块为数据库操作提供全面的错误类型，包括查询错误、关联错误和通用Kitx错误。
@@ -30,7 +29,6 @@ use sqlx::Error as SqlxError;
 /// println!("Error: {}", error);
 /// ```
 /// 
-/// # 中文
 /// Kitx操作的主要错误类型。
 /// 
 /// 此结构体包装错误消息，并实现必要的trait以与Rust的错误处理系统
@@ -65,7 +63,6 @@ pub struct KitxError {
 /// - `DuplicateWhereClause`: Duplicate WHERE clause detected
 /// - `Other`: Generic error with custom message
 /// 
-/// # 中文
 /// 数据库操作的查询特定错误类型。
 /// 
 /// 此枚举涵盖数据库查询构建和执行过程中可能发生的各种错误场景，
@@ -112,7 +109,6 @@ pub enum QueryError {
 /// - `ValueEmpty`: Expected non-empty values but got empty collection
 /// - `ValueMismatch`: Value type or content mismatch between expected and actual
 /// 
-/// # 中文
 /// 处理实体关系的关联特定错误类型。
 /// 
 /// 此枚举处理在处理实体关系时发生的错误，
@@ -146,7 +142,6 @@ impl QueryError {
     /// assert_eq!(error.message(), "Database pool not initialized");
     /// ```
     /// 
-    /// # 中文
     /// 返回查询错误的描述性错误消息。
     /// 
     /// 此方法提供可读的错误消息，可以显示给用户或记录用于调试。
@@ -193,7 +188,6 @@ impl RelationError {
     /// assert_eq!(error.message(), "Expected non-empty values, got 0");
     /// ```
     /// 
-    /// # 中文
     /// 返回关联错误的描述性错误消息。
     /// 
     /// 此方法为关系相关错误提供详细的错误消息，
@@ -232,7 +226,6 @@ impl KitxError {
     /// 
     /// # Arguments
     /// * `message` - Error description message
-    /// # 中文
     /// 创建一个新的KitxError实例
     /// 
     /// # 参数
@@ -255,7 +248,6 @@ impl From<QueryError> for KitxError {
     /// # Returns
     /// A new KitxError instance with the error message from the QueryError.
     /// 
-    /// # 中文
     /// 将QueryError转换为KitxError。
     /// 
     /// 此转换允许在期望KitxError的地方使用QueryError实例，
@@ -283,7 +275,6 @@ impl From<QueryError> for SqlxError {
     /// # Returns
     /// A SqlxError containing the QueryError wrapped in a KitxError.
     /// 
-    /// # 中文
     /// 将QueryError转换为SqlxError。
     /// 
     /// 此转换通过将QueryError包装在KitxError中然后转换为SqlxError，
@@ -311,7 +302,6 @@ impl From<RelationError> for SqlxError {
     /// # Returns
     /// A SqlxError containing the RelationError wrapped in a KitxError.
     /// 
-    /// # 中文
     /// 将RelationError转换为SqlxError。
     /// 
     /// 此转换通过将RelationError包装在KitxError中然后转换为SqlxError，
@@ -333,7 +323,6 @@ impl DatabaseError for KitxError {
     /// # Returns
     /// A reference to self as an Error trait object.
     /// 
-    /// # 中文
     /// 返回错误作为trait对象的引用。
     /// 
     /// # 返回值
@@ -347,7 +336,6 @@ impl DatabaseError for KitxError {
     /// # Returns
     /// A string slice containing the error message.
     /// 
-    /// # 中文
     /// 返回错误消息。
     /// 
     /// # 返回值
@@ -361,7 +349,6 @@ impl DatabaseError for KitxError {
     /// # Returns
     /// A mutable reference to self as an Error trait object.
     /// 
-    /// # 中文
     /// 返回错误作为trait对象的可变引用。
     /// 
     /// # 返回值
@@ -378,7 +365,6 @@ impl DatabaseError for KitxError {
     /// # Returns
     /// A boxed Error trait object.
     /// 
-    /// # 中文
     /// 将装箱的错误转换为装箱的trait对象。
     /// 
     /// # 参数
@@ -398,7 +384,6 @@ impl DatabaseError for KitxError {
     /// # Returns
     /// Always returns `ErrorKind::Other`.
     /// 
-    /// # 中文
     /// 返回数据库错误的类型。
     /// 
     /// 所有KitxError实例都被分类为"Other"错误类型，

@@ -5,7 +5,6 @@
 //! These functions are designed to work with the sqlx QueryBuilder to construct
 //! safe and efficient database queries.
 //! 
-//! # 中文
 //! 数据库查询过滤器工具
 //! 
 //! 该模块提供了构建数据库查询条件的实用函数，
@@ -32,7 +31,6 @@ use crate::common::{conversion::ValueConvert, fields::get_value, types::{Primary
 /// * `primary_key` - The PrimaryKey configuration containing column names
 /// * `values` - Vector of values corresponding to the primary key columns
 /// 
-/// # 中文
 /// 推入主键和值的条件绑定到查询构建器
 /// 
 /// 此函数向查询构建器添加主键列及其对应值的 WHERE 条件。
@@ -86,7 +84,6 @@ pub fn push_primary_key_bind<'a, ET, DB, VAL>(
 /// * `model` - Reference to the entity model from which to extract values
 /// * `primary_key` - The PrimaryKey configuration containing column names
 /// 
-/// # 中文
 /// 将实体和主键条件推送到查询构建器
 /// 
 /// 此函数根据主键列名从实体模型中提取值，并向查询构建器添加 WHERE 条件。

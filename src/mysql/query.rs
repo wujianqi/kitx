@@ -5,7 +5,6 @@
 //! single or multiple rows, and handling transactions. All functions are designed
 //! to work with the MySQL-specific sqlx types.
 //! 
-//! # 中文
 //! MySQL 数据库查询执行模块
 //! 
 //! 该模块提供了针对 MySQL 数据库执行各种类型数据库查询的函数。
@@ -24,7 +23,6 @@ use crate::mysql::connection;
 /// # Returns
 /// MySqlQueryResult on success or an Error
 /// 
-/// # 中文
 /// 执行查询并返回结果
 /// 
 /// # 参数
@@ -53,7 +51,6 @@ pub async fn execute<'a>(
 /// # Returns
 /// Vector of MySqlQueryResults on success or an Error
 /// 
-/// # 中文
 /// 在事务中执行多个查询
 /// 
 /// # 参数
@@ -104,7 +101,6 @@ pub async fn execute_with_trans<'a>(
 /// # Returns
 /// Optional mapped type on success or an Error
 /// 
-/// # 中文
 /// 获取可选的单行数据并映射到类型
 /// 
 /// # 类型参数
@@ -141,7 +137,6 @@ where
 /// # Returns
 /// Mapped type on success or an Error
 /// 
-/// # 中文
 /// 获取单行数据并映射到类型
 /// 
 /// # 类型参数
@@ -178,7 +173,6 @@ where
 /// # Returns
 /// Vector of mapped types on success or an Error
 /// 
-/// # 中文
 /// 获取所有行数据并映射到类型向量
 /// 
 /// # 类型参数
@@ -212,7 +206,6 @@ where
 /// # Returns
 /// u64 scalar value on success or an Error
 /// 
-/// # 中文
 /// 获取标量值（通常是计数或ID）
 /// 
 /// # 参数
@@ -241,7 +234,6 @@ pub async fn fetch_scalar<'a>(
 /// # Returns
 /// Optional u64 scalar value on success or an Error
 /// 
-/// # 中文
 /// 获取可选的标量值（通常是计数或ID）
 /// 
 /// # 参数

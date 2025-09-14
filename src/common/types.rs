@@ -4,7 +4,6 @@
 //! for database operations. It includes pagination results, sorting orders, primary key
 //! definitions, and cursor-based pagination structures.
 //! 
-//! # 中文
 //! 数据库操作的通用类型和结构
 //! 
 //! 该模块定义了在整个 kitx crate 中用于数据库操作的通用数据结构和类型。
@@ -22,7 +21,6 @@ use crate::common::{conversion::ValueConvert, fields::get_value};
 /// * [Asc](SortOrder::Asc) - Ascending order
 /// * [Desc](SortOrder::Desc) - Descending order
 /// 
-/// # 中文
 /// 排序顺序枚举
 /// 
 /// # 变体
@@ -43,7 +41,6 @@ impl SortOrder {
     /// # Returns
     /// Returns "ASC" for ascending order, "DESC" for descending order
     /// 
-    /// # 中文
     /// 将SortOrder转换为字符串表示
     /// 
     /// # 返回值
@@ -62,7 +59,6 @@ impl SortOrder {
 /// * [Single](PrimaryKey::Single) - Single column primary key
 /// * [Composite](PrimaryKey::Composite) - Composite primary key with multiple columns
 /// 
-/// # 中文
 /// 主键结构
 /// 
 /// # 变体
@@ -80,7 +76,6 @@ impl <'a> PrimaryKey<'a> {
     /// # Returns
     /// A vector containing the names of primary key columns
     /// 
-    /// # 中文
     /// 获取主键列名
     /// 
     /// # 返回值
@@ -97,7 +92,6 @@ impl <'a> PrimaryKey<'a> {
     /// # Returns
     /// True if the primary key is auto-generated, false otherwise
     /// 
-    /// # 中文
     /// 检查主键是否为自动生成
     /// 
     /// # 返回值
@@ -115,7 +109,6 @@ impl <'a> PrimaryKey<'a> {
 /// # Type Parameters
 /// * `T` - The type of data records
 /// 
-/// # 中文
 /// 分页查询结果结构
 /// 
 /// # 类型参数
@@ -124,25 +117,21 @@ impl <'a> PrimaryKey<'a> {
 pub struct PaginatedResult<T> {
     /// Data records queried
     /// 
-    /// # 中文
     /// 查询到的数据记录
     pub data: Vec<T>,
     
     /// Total number of records
     /// 
-    /// # 中文
     /// 记录总数
     pub total: u64,
     
     /// Current page number
     /// 
-    /// # 中文
     /// 当前页码
     pub page_number: u64,
     
     /// Number of records per page
     /// 
-    /// # 中文
     /// 每页记录数
     pub page_size: u64,
 }
@@ -159,7 +148,6 @@ impl<T> PaginatedResult<T> {
     /// # Returns
     /// A new PaginatedResult instance
     /// 
-    /// # 中文
     /// 使用给定的数据、总数、页码和页面大小创建新的PaginatedResult
     /// 
     /// # 参数
@@ -186,7 +174,6 @@ impl<T> PaginatedResult<T> {
 /// * `T` - The type of data records
 /// * `C` - The type of cursor value
 /// 
-/// # 中文
 /// 游标分页结果结构
 /// 
 /// # 类型参数
@@ -196,31 +183,26 @@ impl<T> PaginatedResult<T> {
 pub struct CursorPaginatedResult<T, C> {
     /// Data records queried
     /// 
-    /// # 中文
     /// 查询到的数据记录
     pub data: Vec<T>,
     
     /// Next page cursor
     /// 
-    /// # 中文
     /// 下一页游标
     pub next_cursor: Option<C>,
     
     /// Previous page cursor
     /// 
-    /// # 中文
     /// 上一页游标
     pub prev_cursor: Option<C>,
     
     /// Maximum number of records per page
     /// 
-    /// # 中文
     /// 每页最大记录数
     pub limit: u64,
     
     /// Sort order direction
     /// 
-    /// # 中文
     /// 排序方向
     pub sort_order: SortOrder,
 }
@@ -236,7 +218,6 @@ impl<T, C> CursorPaginatedResult<T, C> {
     /// # Returns
     /// A new CursorPaginatedResult instance
     /// 
-    /// # 中文
     /// 使用给定的数据、限制和排序顺序创建新的CursorPaginatedResult
     /// 
     /// # 参数
@@ -261,7 +242,6 @@ impl<T, C> CursorPaginatedResult<T, C> {
     /// # Returns
     /// True if there is a next page, false otherwise
     /// 
-    /// # 中文
     /// 检查是否存在下一页
     /// 
     /// # 返回值
@@ -275,7 +255,6 @@ impl<T, C> CursorPaginatedResult<T, C> {
     /// # Returns
     /// True if there is a previous page, false otherwise
     /// 
-    /// # 中文
     /// 检查是否存在上一页
     /// 
     /// # 返回值
@@ -293,7 +272,6 @@ impl<T, C> CursorPaginatedResult<T, C> {
     /// # Arguments
     /// * `column_key` - The column key to extract cursor values from
     /// 
-    /// # 中文
     /// 为分页生成游标
     /// 
     /// # 类型参数

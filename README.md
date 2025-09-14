@@ -1,6 +1,6 @@
 # 🛠️ Kitx - A Fast CRUD Toolkit Based on Rust's Sqlx
 
-🌐 English | [中文](README_CN.md)
+🌐 English | [中文](https://github.com/wujianqi/kitx/blob/main/README.CN.md)
 
 **A lightweight CRUD toolkit built on top of `sqlx::QueryBuilder`**
 
@@ -129,11 +129,11 @@ For more examples, check the integration tests under each database-specific modu
 ---
 
 💡 **Note**:  
-Kitx works by breaking down SQL statements into keyword-based segments (e.g., `"SELECT {} FROM {} WHERE {}"`) and using entity model data to auto-fill placeholders. When automatic filling isn't sufficient, you can fall back to manual construction via closures (`fn(QueryBuilder)`), allowing aliases, joins, nested conditions, etc.
+> Kitx works by breaking down SQL statements into keyword-based segments (e.g., `"SELECT {} FROM {} WHERE {}"`) and using entity model data to auto-fill placeholders. When automatic filling isn't sufficient, you can fall back to manual construction via closures (`fn(QueryBuilder)`), allowing aliases, joins, nested conditions, etc.  
 
-Methods named `one` or `many` that operate directly on entity models **do not support custom SQL fragments**. These require a strict naming convention: the database table name (snake_case) must correspond to the struct name (camelCase).
+> Methods named `one` or `many` that operate directly on entity models **do not support custom SQL fragments**. These require a strict naming convention: the database table name (snake_case) must correspond to the struct name (camelCase).  
 
-All methods are thoroughly unit-tested to ensure reliability.
+> All methods are thoroughly unit-tested to ensure reliability.  
 
 --- 
 

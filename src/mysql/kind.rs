@@ -5,7 +5,6 @@
 //! It handles the mapping between Rust types and MySQL/MariaDB data types, including numeric, 
 //! string, binary, temporal, JSON, UUID, and IP address types.
 //! 
-//! 中文：
 //! MySQL 和 MariaDB 数据库操作的数据类型定义和转换。
 //! 
 //! 本模块提供了 [DataKind] 枚举，用于表示 MySQL 和 MariaDB 支持的各种数据库字段类型，

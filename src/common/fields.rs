@@ -5,7 +5,6 @@
 //! modes including filtering, batch processing, and conditional value extraction.
 //! These utilities are essential for building dynamic SQL queries and parameter binding.
 //! 
-//! # 中文
 //! 数据库操作的字段提取工具。
 //! 
 //! 此模块为实现了 `FieldAccess` trait 的结构体提供全面的字段名和值提取工具。
@@ -43,7 +42,6 @@ use super::conversion::{ValueConvert, is_empty_or_none};
 /// assert_eq!(names.len(), values.len());
 /// ```
 /// 
-/// # 中文
 /// 从结构体中提取所有字段名和值。
 /// 
 /// 此函数从结构体的字段迭代器中提取所有字段名及其对应的值。
@@ -120,7 +118,6 @@ where
 /// );
 /// ```
 /// 
-/// # 中文
 /// 从结构体中提取字段名和值，支持过滤和自定义绑定函数。
 /// 
 /// 此函数提供高级字段提取功能，具有多种过滤选项，并允许通过绑定函数
@@ -217,7 +214,6 @@ where
 /// );
 /// ```
 /// 
-/// # 中文
 /// 从结构体中提取字段名和值，支持过滤选项。
 /// 
 /// 这是 `extract_with_bind` 的简化版本，提供具有过滤功能的字段提取，
@@ -300,7 +296,6 @@ where
 /// // all_values: [["John", "john@example.com", "25"], ...]
 /// ```
 /// 
-/// # 中文
 /// 从多个实体中提取字段数据用于批量操作。
 /// 
 /// 此函数处理多个实体并提取它们的字段数据，格式适用于批量数据库操作如批量插入。
@@ -386,7 +381,6 @@ where
 /// // values: ["John", "john@example.com", ""]
 /// ```
 /// 
-/// # 中文
 /// 从实体中获取特定列的值。
 /// 
 /// 此函数从实体中提取指定列名列表的值。如果字段不存在或无法访问，
@@ -463,7 +457,6 @@ where
 /// let missing: String = get_value(&user, "nonexistent"); // Returns ""
 /// ```
 /// 
-/// # 中文
 /// 从实体中获取特定列的单个值。
 /// 
 /// 此函数从实体中提取单个列名的值。如果字段不存在或无法访问，
