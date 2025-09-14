@@ -259,7 +259,7 @@ where
     /// * `page_size` - Number of records per page
     /// 
     /// # Type Parameters
-    /// * `VAL` - Must also implement From<i64> trait
+    /// * `VAL` - Must also implement `From<i64>` trait
     /// 
     /// # Returns
     /// A QueryBuilder with the SELECT query or an Error
@@ -271,7 +271,7 @@ where
     /// * `page_size` - 每页记录数
     /// 
     /// # 类型参数
-    /// * `VAL` - 还必须实现 From<i64> trait
+    /// * `VAL` - 还必须实现 `From<i64>` trait
     /// 
     /// # 返回值
     /// 包含 SELECT 查询的 QueryBuilder 或错误
@@ -308,7 +308,7 @@ where
     /// * `limit` - Maximum number of records to return
     /// 
     /// # Type Parameters
-    /// * `VAL` - Must also implement From<i64> trait
+    /// * `VAL` - Must also implement `From<i64>` trait
     /// * `C` - Cursor type
     /// 
     /// # Returns
@@ -323,7 +323,7 @@ where
     /// * `limit` - 要返回的最大记录数
     /// 
     /// # 类型参数
-    /// * `VAL` - 还必须实现 From<i64> trait
+    /// * `VAL` - 还必须实现 `From<i64>` trait
     /// * `C` - 游标类型
     /// 
     /// # 返回值

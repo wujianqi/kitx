@@ -1,6 +1,6 @@
 [package]
 name = "kitx"
-version = "0.0.15"
+version = "0.0.16"
 edition = "2024"
 authors = ["Wu Jianqi <janchie@163.com>"]
 
@@ -41,5 +41,6 @@ postgres = [
 [dev-dependencies]
 dotenv = "0.15.0"
 
+# cargo doc --document-private-items --no-deps
 [package.metadata.docs.rs]
 features = ["sqlite", "mysql", "postgres"]
