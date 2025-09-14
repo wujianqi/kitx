@@ -1,9 +1,5 @@
 pub mod common;
-pub mod utils;
-pub mod sql;
-
-#[cfg(any(feature = "mysql", feature = "sqlite", feature = "postgres"))]
-pub mod builders;
+pub(crate) mod internal;
 
 #[cfg(feature = "sqlite")]
 pub mod sqlite;
@@ -14,5 +10,7 @@ pub mod mysql;
 #[cfg(feature = "postgres")]
 pub mod postgres;
 
-#[cfg(any(feature = "mysql", feature = "sqlite", feature = "postgres"))]
-pub mod prelude; 
+#[cfg(test)]
+pub mod test_utils;
+
+pub mod prelude;

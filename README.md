@@ -1,138 +1,141 @@
-# KitX: Lightweight Rust SQL Builder for Rapid CRUD Operations
+# 🛠️ Kitx - A Fast CRUD Toolkit Based on Rust's Sqlx
 
-A minimalistic SQL builder library for Rust built on [sqlx](https://crates.io/crates/sqlx), designed for streamlined database interactions. This lightweight wrapper focuses on accelerating core CRUD operations (Create, Read, Update, Delete) while maintaining simplicity for straightforward database management tasks.
+🌐 English | [中文](README_CN.md)
 
-## Features
+**A lightweight CRUD toolkit built on top of `sqlx::QueryBuilder`**
 
-### Core Functionality
-- **CRUD Operations**  
-  `insert_one`, `insert_many`, `update_one`, `update_by_cond`, `upsert_one`, `upsert_many`, `delete_by_pk`, `delete_by_cond`  
-  `get_one_by_pk`, `get_one_by_cond`, `get_list_by_cond`, `get_list_paginated`, `get_list_by_cursor`, `exists`, `count`    
+> Use it just like you'd use Sqlx — flexible, simple, and without extra overhead!  
+> Supports: **SQLite**, **MySQL/MariaDB**, and **PostgreSQL**
 
-- **Soft Delete Management**  
-  `restore_by_pk`, `restore_by_cond`  
-  with global configuration
+---
 
-- **Flexible Query Building**  
-  Supports JOINs, CASE WHEN, WITH CTE, and aggregations. Supports ON CONFLICT/DUPLICATE KEY (upsert) and RETURNING for conflict resolution and data retrieval.
+## 🌟 Key Features
 
-- **Code Characteristics** 
-  - **No Macros**: Public interfaces avoid macros, ensuring transparency and maintainability.
-  - **No `.unwrap()` or `.expect()`**: Prevents runtime panics by promoting robust error handling.
+1. **Native Sqlx Usage Style**  
+   Core queries are built with a thin wrapper around `sqlx::QueryBuilder`, ensuring type safety and protection against SQL injection. Easily compose raw SQL fragments for complex query scenarios.
 
-### Key Advantages
-- 🛠️ **SeaQuery-Like API** - Simplified Query builder 
-- 🚀 **No ORM Overhead** - Direct SQL interaction with builder pattern  
-- 🌍 **Global Filters** - Apply tenant ID or soft delete filters across all queries  
+2. **Simplified Entity Model Macros**  
+   Depends only on the `FieldAccess` trait (besides `sqlx`). No heavy derive macros needed — minimal configuration and boilerplate. Comes with utility functions to parse entity models.
 
-## Quick Start
+3. **Reduced Field Binding Effort**  
+   Eliminates repetitive `.bind(x).bind(y)...` calls. Many operations require **no manual binding** of field values!
+
+4. **Built-in Common Operations**  
+   Provides ready-to-use methods for **Insert, Update, Upsert, Delete, Select**, including regular pagination and cursor-based pagination — covering most real-world use cases.
+
+---
+
+## 🚀 Why Choose Kitx? See It in Action!
+
+```rust
+/// Fetch all records — So easy?
+async fn test_find_all() {
+    let qb = Select::<Article>::select_default().from_default().inner();
+    
+    init_pool().await;
+    let list = fetch_all::<Article>(qb).await.unwrap();  
+    dbg!(&list);
+}
+```
+
+```rust
+/// Not an ORM, but still very convenient.
+/// Note: Foreign key relationships must be handled manually.
+async fn test_update_one() {
+    let mut entity = Article::new(110, "test_title_", None);
+    entity.content = Some("test_content".to_string());
+    entity.id = 1;
+
+    let key = PrimaryKey::Single("id", true);
+    let qb = Update::one(&entity, &key, true).unwrap();
+
+    init_pool().await;
+    let result = execute(qb).await.unwrap(); 
+    println!("Updated {} rows.", result.rows_affected());
+}
+```
+
+```rust
+/// Nested subquery example
+async fn test_nested_subquery() {
+    let avg_views_subquery = Subquery::<Article>::select(|b| {
+        b.push("AVG(views)");
+    })
+    .from_default()
+    .where_(|b| {
+        b.push("id > ").push_bind(3.into());
+    });
+
+    let qb = Select::<Article>::select_default()
+        .from_default()
+        .where_(move |b| {
+            b.push("views < ");
+            avg_views_subquery.append_to(b);
+        })
+        .order_by("id DESC")
+        .inner();
+
+    init_pool().await;
+    let result = fetch_all::<Article>(qb).await.unwrap();
+    dbg!(&result);
+}
+```
+
+---
+
+## 📦 Getting Started
 
 ### 1. Add Dependency
+
 ```toml
-# Default SQL Builder, completely decoupled from any external libraries.
-kitx = "0.0.13"
-
-# For SQLite only, WAL mode is enabled by default.
-kitx = { version = "0.0.13", features = ["sqlite"] }
-
-# For MySQL/MariaDB only
-kitx = { version = "0.0.13", features = ["mysql"] }
-
-# For PostgreSQL only
-kitx = { version = "0.0.13", features = ["postgres"] }
+[dependencies]
+kitx = "0.0.15"
 ```
 
-### 2. Basic Usage
+Or, if you're targeting a specific database (recommended for better compile-time performance):
+
+```toml
+# For PostgreSQL
+kitx = { version = "0.0.15", features = ["postgres"] }
+
+# For MySQL
+kitx = { version = "0.0.15", features = ["mysql"] }
+
+# For SQLite
+kitx = { version = "0.0.15", features = ["sqlite"] }
+```
+
+> All three databases are supported by default, but enabling only the required feature improves compilation speed.
+
+---
+
+### 2. Usage Guide
+
 ```rust
 use kitx::prelude::{*, postgres::*};
 
-// SQL Builder Example
-// AND and OR conditions can be applied either within filter clauses or directly in the builder.
-let query = Select::columns(&["id", "name"])
-    .from("users")
-    .and_where(Expr::col("age").eq(23))
-    .and_where(Expr::col("salary").gt(4500))
-    .or_where(Expr::col("status").is_in(vec!["active", "pending"]))
-    .order_by("created_at", OrderBy::Desc)
-    .build().0;
+async fn test_find_all() {
+    let qb = Select::<Article>::select_default().from_default().inner();
+    
+    init_pool().await;
+    let list = fetch_all::<Article>(qb).await.unwrap();
 
-let query2 = Insert::into("users")
-    .columns(&["id", "name"])
-    .values(vec![22, "John Doe"])
-    .build().0;
-  
-// CRUD Operations (Single Key)
-let op = Operations::new("articles", ("article_id", true));
-// Composite Key Operations
-// let op = MutliKeyOperations::new("articles_tag", vec!["article_id", "tag_id"]);
-
-let article = Article {
-    id: 22,
-    title: "Rust Best Practices".into(),
-    content: "...".into(),
-};
-
-// Insert with transaction
-op.insert_one(article).await?;
+    // ...
+}
 ```
 
-### 3. Pagination Example
-```rust
-let results = op.get_list_paginated(10, 2, |_|{}).await?;
+For more examples, check the integration tests under each database-specific module.
 
-let results = op.get_list_by_cursor(10, |&mut builder|{
-    builder.and_where_mut(Expr::col("created_at").gt(DateTime::now()));
-}).await?;
+---
 
-```
+💡 **Note**:  
+Kitx works by breaking down SQL statements into keyword-based segments (e.g., `"SELECT {} FROM {} WHERE {}"`) and using entity model data to auto-fill placeholders. When automatic filling isn't sufficient, you can fall back to manual construction via closures (`fn(QueryBuilder)`), allowing aliases, joins, nested conditions, etc.
 
-### 4. JOIN Operations (Relationship Handling)
-```rust
-let results = op.get_list(|&mut builder|{
-    builder.alias_mut("u")
-        .and_where_mut(Expr::col("u.age").eq(20)))
-        .join_mut(JoinType::inner("orders o")
-            .on(Expr::from_str("u.id = o.user_id")
-            .and(Expr::from_str("u.name = o.user_name"))
-}).await?;
+Methods named `one` or `many` that operate directly on entity models **do not support custom SQL fragments**. These require a strict naming convention: the database table name (snake_case) must correspond to the struct name (camelCase).
 
-```
+All methods are thoroughly unit-tested to ensure reliability.
 
-### 5. Transaction Management
-```rust
-use kitx::prelude::{*, postgres::*};
+--- 
 
-let query = Query::shared();
-let article_op = article_operations().set(query.share());
-let article_tag_op = tag_operations().set(query.share());
-
-query.share().begin_transaction().await?
-
-let mut article = Article::new(100,"test222", None);
-article.content = Some("abc".to_string());
-
-let mut article_ag = ArticleTag::new("tag1");
-article_ag.article_id = 1;
-article_ag.share_seq = 1234;
-
-article_op.insert_one(article).await?;
-article_tag_op.insert_one(article_ag).await?;
-
-query.share().commit().await?;
-
-```
-
-### 6. Optional: Global Configuration
-```rust
-// Soft delete configuration
-set_global_soft_delete_field("deleted_at", &["audit_logs"]);
-
-// Global_filter is applied on a per-thread basis.
-// Multi-tenant filtering
-set_global_filter(col("tenant_id").eq(123)), &["system_metrics"]);
-```
-### 7. More Usage Examples 
-For more detailed usage examples and advanced scenarios, please refer to the test cases provided in the repository.
-
-## License
-MIT License
+> ✅ Simple. Safe. Expressive.  
+> Build powerful database interactions — without leaving the comfort of Sqlx.

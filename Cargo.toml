@@ -1,6 +1,6 @@
 [package]
 name = "kitx"
-version = "0.0.13"
+version = "0.0.15"
 edition = "2024"
 authors = ["Wu Jianqi <janchie@163.com>"]
 
@@ -13,32 +13,29 @@ categories = ["database"]
 license-file = "LICENSE"
 
 [dependencies]
-sqlx = { version = "0.8.3", optional = true, features = ["runtime-tokio-native-tls"]}
-tokio = { version = "1.42.0", optional = true, features = ["full"] }
-serde = { version = "1.0.215", optional = true, features = ["derive"] }
-serde_json = { version = "1.0.133", optional = true }
-chrono = { version = "0.4.38", features = ["serde"], optional = true }
-field_access = { version = "0.1.11", optional = true }
+sqlx = { version = "0.8.3", features = ["runtime-tokio-native-tls"]}
+tokio = { version = "1.42.0", features = ["full"] }
+serde = { version = "1.0.215", features = ["derive"] }
+serde_json = { version = "1.0.133"}
+chrono = { version = "0.4.38", features = ["serde"]}
+field_access = { version = "0.1.11" }
 uuid = { version = "1.15.1", optional = true } 
 rust_decimal = { version = "1.36.0", optional = true } 
 num_cpus = { version = "1.16.0", optional = true } 
-ipnetwork = "0.21.1"
-mac_address = "1.1.8"
+ipnetwork = { version = "0.21.1", optional = true }
+mac_address = { version = "1.1.8", optional = true }
 
 [features]
-default = []
-# default = ["sqlite", "mysql", "postgres"]
+default = ["sqlite", "mysql", "postgres"]
 sqlite = [
     "sqlx/sqlite", "sqlx/chrono", "sqlx/json", "sqlx/uuid",
-    "sqlx", "num_cpus", "chrono", "tokio", "serde", "serde_json", "field_access"
 ]
 mysql = [
-    "sqlx/mysql", "sqlx/chrono", "sqlx/json", "sqlx/rust_decimal", "sqlx/uuid",
-    "sqlx", "num_cpus", "chrono", "tokio", "serde", "serde_json", "field_access"
+    "num_cpus", "ipnetwork", "sqlx/mysql", "sqlx/chrono", "sqlx/json", "sqlx/rust_decimal", "sqlx/uuid",
 ]
 postgres = [
-    "sqlx/postgres", "sqlx/chrono", "sqlx/json", "sqlx/uuid", "sqlx/rust_decimal", "sqlx/ipnetwork", "sqlx/mac_address",
-    "sqlx", "num_cpus", "chrono", "tokio", "serde", "serde_json", "field_access"
+    "num_cpus", "ipnetwork",  "mac_address","sqlx/postgres", "sqlx/chrono", "sqlx/json", "sqlx/uuid",
+    "sqlx/rust_decimal", "sqlx/ipnetwork", "sqlx/mac_address"
 ]
 
 [dev-dependencies]

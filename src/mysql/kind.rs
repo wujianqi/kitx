@@ -1,17 +1,34 @@
-use std::any::Any;
+//! Data type definitions and conversions for MySQL and MariaDB database operations.
+//! 
+//! This module provides the [DataKind] enumeration which represents various database field types
+//! supported by MySQL and MariaDB, along with their encoding and type conversion implementations. 
+//! It handles the mapping between Rust types and MySQL/MariaDB data types, including numeric, 
+//! string, binary, temporal, JSON, UUID, and IP address types.
+//! 
+//! 中文：
+//! MySQL 和 MariaDB 数据库操作的数据类型定义和转换。
+//! 
+//! 本模块提供了 [DataKind] 枚举，用于表示 MySQL 和 MariaDB 支持的各种数据库字段类型，
+//! 并包含它们的编码和类型转换实现。它处理 Rust 类型和 MySQL/MariaDB 数据类型之间的映射，
+//! 包括数值、字符串、二进制、时间、JSON、UUID 和 IP 地址类型。
+
 use std::borrow::Cow;
+use std::error::Error;
+use std::sync::Arc;
+use std::any::Any;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
+use sqlx::encode::IsNull;
 use sqlx::mysql::{MySql, MySqlTypeInfo};
 use sqlx::{Encode, Type, TypeInfo};
 use sqlx::types::{Decimal, Uuid};
 use serde_json::Value;
 
-use crate::utils::type_conversion::{unwrap_option, ValueConvert};
+use crate::common::conversion::{unwrap_option, ValueConvert};
 
-/// Data type enumeration, supporting the main type system of MySQL
+/// Enum representing PostgreSQL data types, supporting the main PostgreSQL type system
 #[derive(Default, Debug, Clone, PartialEq)]
-pub enum DataKind<'a> {
+pub enum DataKind {
     // Basic types
     #[default]
     Null,
@@ -33,10 +50,10 @@ pub enum DataKind<'a> {
     Decimal(Decimal),  // DECIMAL
 
     // String types
-    Text(Cow<'a, str>),   // VARCHAR, CHAR, TEXT
+    Text(String),   // VARCHAR, CHAR, TEXT
 
     // Binary types
-    Blob(Cow<'a, [u8]>),  // VARBINARY, BINARY, BLOB
+    Blob(Arc<[u8]>),  // VARBINARY, BINARY, BLOB
 
     // Time types
     Date(NaiveDate),      // DATE
@@ -45,18 +62,24 @@ pub enum DataKind<'a> {
     Timestamp(DateTime<Utc>), // TIMESTAMP
 
     // Special types
-    Json(Cow<'a, Value>),          // JSON
-    Uuid(Uuid),           // BINARY(16), UUID (MariaDB)
-    IpAddr(IpAddr),       // INET4/INET6 (MariaDB), VARCHAR/TEXT
-    Ipv4Addr(Ipv4Addr),   // INET4 (MariaDB), VARCHAR/TEXT
-    Ipv6Addr(Ipv6Addr),   // INET6 (MariaDB), VARCHAR/TEXT
+    Json(Arc<Value>),          // JSON (both MySQL 5.7+ and MariaDB 10.2+)
+    
+    // UUID support - stored as BINARY(16) in both MySQL and MariaDB
+    // Note: MariaDB 10.7+ has native UUID type, but sqlx uses BINARY(16) for compatibility
+    Uuid(Uuid),
+    
+    // IP Address types - stored as string for maximum compatibility
+    // Note: While MariaDB has native INET4/INET6 types, they're not yet fully supported by sqlx
+    IpAddr(IpAddr),       // Stored as VARCHAR for compatibility
+    Ipv4Addr(Ipv4Addr),   // Stored as VARCHAR or can be optimized to INT UNSIGNED
+    Ipv6Addr(Ipv6Addr),   // Stored as VARCHAR or BINARY(16)
 }
 
-impl<'a> Encode<'a, MySql> for DataKind<'a> {
-    fn encode_by_ref(&self, buf: &mut Vec<u8>) -> Result<sqlx::encode::IsNull, Box<dyn std::error::Error + Send + Sync>> {
+impl Encode<'_, MySql> for DataKind {
+    fn encode_by_ref(&self, buf: &mut Vec<u8>) -> Result<IsNull, Box<dyn Error + Send + Sync>> {
         match self {
             // Basic types
-            DataKind::Null => Ok(sqlx::encode::IsNull::Yes),
+            DataKind::Null => Ok(IsNull::Yes),
             DataKind::Bool(b) => <bool as Encode<'_, MySql>>::encode(*b, buf),
 
             // Numeric types
@@ -75,10 +98,10 @@ impl<'a> Encode<'a, MySql> for DataKind<'a> {
             DataKind::Decimal(d) => <Decimal as Encode<'_, MySql>>::encode(*d, buf),
 
             // String types
-            DataKind::Text(s) => <Cow<'_, str> as Encode<'_, MySql>>::encode(Cow::Borrowed(s), buf),
+            DataKind::Text(s) => <String as Encode<'_, MySql>>::encode(s.to_string(), buf),
 
             // Binary types
-            DataKind::Blob(b) => <Vec<u8> as Encode<'_, MySql>>::encode(b.to_vec(), buf),
+            DataKind::Blob(blob) => <Vec<u8> as Encode<'_, MySql>>::encode(blob.to_vec(), buf),
 
             // Time types
             DataKind::Date(d) => <NaiveDate as Encode<'_, MySql>>::encode(*d, buf),
@@ -87,8 +110,16 @@ impl<'a> Encode<'a, MySql> for DataKind<'a> {
             DataKind::Timestamp(ts) => <DateTime<Utc> as Encode<'_, MySql>>::encode(*ts, buf),
 
             // Special types
-            DataKind::Json(j) => <Value as Encode<'_, MySql>>::encode(j.as_ref().clone(), buf),
+            DataKind::Json(json) => {
+                let owned_json = Arc::clone(&json);
+                <Value as Encode<'_, MySql>>::encode(Arc::try_unwrap(owned_json)
+                    .unwrap_or_else(|arc| (*arc).clone()), buf)
+            },
+            
+            // UUID - encoded as BINARY(16) for both MySQL and MariaDB
             DataKind::Uuid(u) => <Uuid as Encode<'_, MySql>>::encode(*u, buf),
+            
+            // IP Address - stored as string for compatibility
             DataKind::IpAddr(ip) => <String as Encode<'_, MySql>>::encode(ip.to_string(), buf),
             DataKind::Ipv4Addr(ipv4) => <String as Encode<'_, MySql>>::encode(ipv4.to_string(), buf),
             DataKind::Ipv6Addr(ipv6) => <String as Encode<'_, MySql>>::encode(ipv6.to_string(), buf),
@@ -100,7 +131,7 @@ impl<'a> Encode<'a, MySql> for DataKind<'a> {
     }
 }
 
-impl<'a> Type<MySql> for DataKind<'a> {
+impl Type<MySql> for DataKind {
     fn type_info() -> MySqlTypeInfo {
         <str as Type<MySql>>::type_info()
     }
@@ -108,18 +139,20 @@ impl<'a> Type<MySql> for DataKind<'a> {
     fn compatible(ty: &MySqlTypeInfo) -> bool {
         matches!(
             ty.name(),
+            // Standard MySQL/MariaDB types
             "TINYINT" | "SMALLINT" | "INT" | "BIGINT"
-            | "FLOAT" | "DOUBLE"
-            | "DECIMAL"
-            | "CHAR" | "VARCHAR" | "TEXT"
-            | "BLOB" | "MEDIUMBLOB" | "LONGBLOB"
-            | "DATE" | "DATETIME" | "TIMESTAMP"
-            | "JSON" | "NULL"
+            | "FLOAT" | "DOUBLE" | "DECIMAL"
+            | "CHAR" | "VARCHAR" | "TEXT" | "LONGTEXT"
+            | "BINARY" | "VARBINARY" | "BLOB" | "MEDIUMBLOB" | "LONGBLOB"
+            | "DATE" | "TIME" | "DATETIME" | "TIMESTAMP"
+            | "JSON" | "NULL" | "BOOLEAN" | "BOOL"
+            // UUID support (BINARY for MySQL, UUID for MariaDB)
+            | "UUID"
         )
     }
 }
 
-impl<'a> DataKind<'a> {
+impl DataKind {
     pub fn get_type_info(&self) -> MySqlTypeInfo {
         match self {
             // Basic types
@@ -156,6 +189,8 @@ impl<'a> DataKind<'a> {
             // Special types
             DataKind::Json(_) => <Value as Type<MySql>>::type_info(),
             DataKind::Uuid(_) => <Uuid as Type<MySql>>::type_info(),
+            
+            // IP Address types - all use string type info for compatibility
             DataKind::IpAddr(_) => <String as Type<MySql>>::type_info(),
             DataKind::Ipv4Addr(_) => <String as Type<MySql>>::type_info(),
             DataKind::Ipv6Addr(_) => <String as Type<MySql>>::type_info(),
@@ -163,7 +198,7 @@ impl<'a> DataKind<'a> {
     }
 }
 
-impl<'a> ValueConvert<DataKind<'a>> for DataKind<'a> {
+impl ValueConvert for DataKind {
     fn convert(value: &dyn Any) -> Self {
         macro_rules! try_convert {
             ($($type:ty => $variant:expr),*) => {
@@ -175,8 +210,8 @@ impl<'a> ValueConvert<DataKind<'a>> for DataKind<'a> {
         }
 
         try_convert!(
-            String => |v: &String| DataKind::Text(Cow::Owned(v.into())),
-            &str => |v: &'a str| DataKind::Text(Cow::Borrowed(v)),
+            String => |v: &String| DataKind::Text(v.clone()),
+            &str => |v: &&str| DataKind::Text(v.to_string()),
             i8 => |v: &i8| DataKind::TinyInt(*v),
             i16 => |v: &i16| DataKind::SmallInt(*v),
             i32 => |v: &i32| DataKind::Int(*v),
@@ -191,24 +226,35 @@ impl<'a> ValueConvert<DataKind<'a>> for DataKind<'a> {
             NaiveTime => |v: &NaiveTime| DataKind::Time(*v),
             NaiveDateTime => |v: &NaiveDateTime| DataKind::DateTime(*v),
             DateTime<Utc> => |v: &DateTime<Utc>| DataKind::Timestamp(*v),
-            Vec<u8> => |v: &Vec<u8>| DataKind::Blob(Cow::Owned(v.clone())),
-            &[u8] => |v: &&'a [u8]| DataKind::Blob(Cow::Borrowed(*v)),
+            Vec<u8> => |v: &Vec<u8>| DataKind::Blob(Arc::from(v.as_slice())),
+            &[u8] => |v: &&[u8]| DataKind::Blob(Arc::from(*v)),
             bool => |v: &bool| DataKind::Bool(*v),
-            Value => |v: &Value| DataKind::Json(Cow::Owned(v.to_owned())),
+            Value => |v: &Value| DataKind::Json(Arc::new(v.clone())),
+            Uuid => |v: &Uuid| DataKind::Uuid(*v),
             IpAddr => |v: &IpAddr| DataKind::IpAddr(*v),
             Ipv4Addr => |v: &Ipv4Addr| DataKind::Ipv4Addr(*v),
-            Ipv6Addr => |v: &Ipv6Addr| DataKind::Ipv6Addr(*v),
-            Uuid => |v: &Uuid| DataKind::Uuid(*v)
+            Ipv6Addr => |v: &Ipv6Addr| DataKind::Ipv6Addr(*v)
         );
     }
 
-    
+    fn is_default_value(value: &Self) -> bool {
+        match value {
+            // 常用作主键的类型
+            DataKind::Int(v) => *v == 0,
+            DataKind::BigInt(v) => *v == 0,
+            DataKind::UnsignedInt(v) => *v == 0,
+            DataKind::UnsignedBigInt(v) => *v == 0,
+            DataKind::Uuid(v) => v.is_nil(),
+            DataKind::Text(v) => v.is_empty(),
+            _ => false,
+        }
+    }
 }
 
 // Implement From trait for common types
 macro_rules! impl_from {
     ($type:ty, $variant:expr) => {
-        impl<'a> From<$type> for DataKind<'a> {
+        impl From<$type> for DataKind {
             fn from(item: $type) -> Self {
                 $variant(item)
             }
@@ -217,10 +263,10 @@ macro_rules! impl_from {
 }
 
 // Basic and numeric types
-impl_from!(String, |value: String| DataKind::Text(Cow::Owned(value)));
-impl_from!(&'a str, |value: &'a str| DataKind::Text(Cow::Borrowed(value)));
-impl_from!(Vec<u8>, |value: Vec<u8>| DataKind::Blob(Cow::Owned(value)));
-impl_from!(&'a [u8], |value: &'a [u8]| DataKind::Blob(Cow::Borrowed(value)));
+impl_from!(String, |value: String| DataKind::Text(value));
+impl_from!(&str, |value: &str| DataKind::Text(value.to_string()));
+impl_from!(Vec<u8>, |value: Vec<u8>| DataKind::Blob(Arc::from(value)));
+impl_from!(&[u8], |value: &[u8]| DataKind::Blob(Arc::from(value)));
 impl_from!(i8, DataKind::TinyInt);
 impl_from!(i16, DataKind::SmallInt);
 impl_from!(i32, DataKind::Int);
@@ -240,8 +286,21 @@ impl_from!(NaiveDateTime, DataKind::DateTime);
 impl_from!(DateTime<Utc>, DataKind::Timestamp);
 
 // Special types
-impl_from!(Value, |value: Value| DataKind::Json(Cow::Owned(value)));
+impl_from!(Value, |value: Value| DataKind::Json(Arc::new(value)));
 impl_from!(Uuid, DataKind::Uuid);
 impl_from!(IpAddr, DataKind::IpAddr);
 impl_from!(Ipv4Addr, DataKind::Ipv4Addr);
 impl_from!(Ipv6Addr, DataKind::Ipv6Addr);
+
+
+impl<'a> From<DataKind> for Cow<'a, DataKind> {
+    fn from(value: DataKind) -> Self {
+        Cow::Owned(value)
+    }
+}
+
+impl<'a> From<&'a DataKind> for Cow<'a, DataKind> {
+    fn from(value: &'a DataKind) -> Self {
+        Cow::Borrowed(value)
+    }
+}

@@ -1,14 +1,9 @@
-#[cfg(any(feature = "mysql", feature = "sqlite", feature = "postgres"))]
 use field_access::FieldAccess;
-#[cfg(any(feature = "mysql", feature = "sqlite", feature = "postgres"))]
 use serde::{Deserialize, Serialize};
-#[cfg(any(feature = "mysql", feature = "sqlite", feature = "postgres"))]
 use sqlx::FromRow;
-#[cfg(any(feature = "mysql", feature = "sqlite", feature = "postgres"))]
 use std::fmt::Debug;
 
 // Article
-#[cfg(any(feature = "mysql", feature = "sqlite", feature = "postgres"))]
 #[derive(Debug, Serialize, Deserialize, Default, FromRow, FieldAccess, Clone, PartialEq, Hash)]
 //#[serde(rename_all = "camelCase")]
 pub struct Article {
@@ -24,9 +19,7 @@ pub struct Article {
     pub created_at: Option<chrono::NaiveDateTime>,
 }
 
-#[cfg(any(feature = "mysql", feature = "sqlite", feature = "postgres"))]
 impl Article {
-    #[allow(dead_code)]
     pub fn new(
         tenant_id: i32,
         title: &str,
@@ -42,7 +35,6 @@ impl Article {
     }
 }
 
-#[cfg(any(feature = "mysql", feature = "sqlite", feature = "postgres"))]
 #[derive(Debug, Serialize, Deserialize, Default, FromRow, FieldAccess, Clone, PartialEq, Hash)]
 //#[serde(rename_all = "camelCase")]
 pub struct ArticleTag {
@@ -54,7 +46,6 @@ pub struct ArticleTag {
 
 #[cfg(any(feature = "mysql", feature = "sqlite", feature = "postgres"))]
 impl ArticleTag {
-    #[allow(dead_code)]
     pub fn new(
         tag: &str,
     ) -> Self {
