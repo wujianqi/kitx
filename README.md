@@ -156,47 +156,47 @@ For more examples, check integration tests under each database module.
 
 | Method | Description | Example |
 |--------|-------------|---------|
-| `one` | Creates a single record insert operation | `Insert::one(&entity, &PRIMARY_KEY).unwrap()` |
-| `many` | Creates multiple records insert operation | `Insert::many(&entities, &PRIMARY_KEY).unwrap()` |
+| `one` | Creates a single record insert operation | `Insert::one(&entity, &PRIMARY_KEY)?` |
+| `many` | Creates multiple records insert operation | `Insert::many(&entities, &PRIMARY_KEY)?` |
 | `table` | Creates an insert operation with the default table name | `Insert::<Article>::table()` |
-| `with_table` | Creates an insert operation with a custom table name | `Insert::with_table("custom_table", ...)` |
-| `from_query` | Creates an Insert instance from a query | `Insert::from_query(query_builder, ...)` |
-| `from_query_with_table` | Creates an Insert instance from a query with a custom table name | `Insert::from_query_with_table(query_builder, "custom_table", ...)` |
-| `custom` | Customizes VALUES or value-related query statements | `Insert::table().custom(|b| b.push("..."))` |
-| `returning` | Adds RETURNING clause to the insert statement (**PostgreSQL and SQLite only**) | `Insert::table().custom(...).returning("id")` |
-| `finish` | Completes building and returns the internal QueryBuilder | `Insert::table().custom(...).finish()` |
+| `with_table` | Creates an insert operation with a custom table name | `Insert::with_table("custom_table")...` |
+| `from_query` | Creates an Insert instance from a query | `Insert::from_query(query_builde)` |
+| `from_query_with_table` | Creates an Insert instance from a query with a custom table name | `Insert::from_query_with_table(query_builder, "custom_table")...` |
+| `custom` | Customizes VALUES or value-related query statements | `Insert::table().custom(fn)` |
+| `returning` | Adds RETURNING clause to the insert statement (**PostgreSQL and SQLite only**) | `Insert::table().custom(fn).returning("id")` |
+| `finish` | Completes building and returns the internal QueryBuilder | `Insert::table().custom(fn).finish()` |
 
 ## 2. Update Builder
 
 | Method | Description | Example |
 |--------|-------------|---------|
-| `one` | Creates a single entity update operation | `Update::one(&entity, &PRIMARY_KEY, true).unwrap()` |
+| `one` | Creates a single entity update operation | `Update::one(&entity, &PRIMARY_KEY, true)?` |
 | `table` | Creates an Update instance with the default table name | `Update::<Article>::table()` |
-| `with_table` | Creates an Update instance with a custom table name | `Update::with_table("custom_table", ...)` |
-| `from_query` | Creates an Update instance from a query | `Update::from_query(query_builder, ...)` |
-| `from_query_with_table` | Creates an Update instance from a query with a custom table name | `Update::from_query_with_table(query_builder, "custom_table", ...)` |
-| `custom` | Customizes SET columns or other query statements | `Update::table().custom(|b| b.push("views = views + 1"))` |
-| `filter` | Adds WHERE condition to the update statement | `Update::table().filter(|b| b.push("id = ").push_bind(1))` |
-| `returning` | Adds RETURNING clause to the update statement (**PostgreSQL and SQLite only**) | `Update::table().custom(...).returning("id")` |
-| `finish` | Completes building and returns the internal QueryBuilder | `Update::table().custom(...).finish()` |
+| `with_table` | Creates an Update instance with a custom table name | `Update::with_table("custom_table")...` |
+| `from_query` | Creates an Update instance from a query | `Update::from_query(query_builder)...` |
+| `from_query_with_table` | Creates an Update instance from a query with a custom table name | `Update::from_query_with_table(query_builder, "custom_table")...` |
+| `custom` | Customizes SET columns or other query statements | `Update::table().custom(fn)` |
+| `filter` | Adds WHERE condition to the update statement | `Update::table().filter(fn)` |
+| `returning` | Adds RETURNING clause to the update statement (**PostgreSQL and SQLite only**) | `Update::table().custom(fn).returning("id")` |
+| `finish` | Completes building and returns the internal QueryBuilder | `Update::table().custom(fn).finish()` |
 
 ## 3. Upsert Builder
 
 | Method | Description | Example |
 |--------|-------------|---------|
-| `one` | Creates a single record upsert operation | `Upsert::one(&entity, &PRIMARY_KEY).unwrap()` |
-| `many` | Creates multiple records upsert operation | `Upsert::many(&entities, &PRIMARY_KEY).unwrap()` |
+| `one` | Creates a single record upsert operation | `Upsert::one(&entity, &PRIMARY_KEY)?` |
+| `many` | Creates multiple records upsert operation | `Upsert::many(&entities, &PRIMARY_KEY)?` |
 
 ## 4. Delete Builder
 
 | Method | Description | Example |
 |--------|-------------|---------|
 | `table` | Creates a Delete instance with the default table name | `Delete::<Article>::table()` |
-| `with_table` | Creates a Delete instance with a custom table name | `Delete::with_table("custom_table", ...)` |
-| `from_query` | Creates a Delete instance from a query | `Delete::from_query(query_builder, ...)` |
-| `from_query_with_table` | Creates a Delete instance from a query with a custom table name | `Delete::from_query_with_table(query_builder, "custom_table", ...)` |
-| `by_primary_key` | Creates a DELETE query by primary key | `Delete::table().by_primary_key(&PRIMARY_KEY, &ids)` |
-| `filter` | Creates a DELETE query with custom WHERE conditions | `Delete::table().filter(|b| b.push("id = ").push_bind(1))` |
+| `with_table` | Creates a Delete instance with a custom table name | `Delete::with_table("custom_table")...` |
+| `from_query` | Creates a Delete instance from a query | `Delete::from_query(query_builder)...` |
+| `from_query_with_table` | Creates a Delete instance from a query with a custom table name | `Delete::from_query_with_table(query_builder, "custom_table")...` |
+| `by_primary_key` | Creates a DELETE query by primary key | `Delete::table().by_primary_key(&PRIMARY_KEY, &ids)...` |
+| `filter` | Creates a DELETE query with custom WHERE conditions | `Delete::table().filter(fn)` |
 | `returning` | Adds RETURNING clause to the DELETE statement (**PostgreSQL and SQLite only**) | `Delete::table().returning("*")` |
 | `finish` | Completes building and returns the internal QueryBuilder | `Delete::table().finish()` |
 
@@ -205,18 +205,18 @@ For more examples, check integration tests under each database module.
 | Method | Description | Example |
 |--------|-------------|---------|
 | `table` | Creates a Select instance with the default table name | `Select::<Article>::table()` |
-| `with_table` | Creates a Select instance with a custom table name | `Select::with_table("custom_table", ...)` |
-| `from_query` | Creates a Select instance from a query | `Select::from_query(query_builder, ...)` |
-| `from_query_with_table` | Creates a Select instance from a query with a custom table name | `Select::from_query_with_table(query_builder, "custom_table", ...)` |
-| `columns` | Creates a custom column query statement | `Select::table().columns(|b| b.push("id, title"))` |
-| `filter` | Creates a SELECT query with custom WHERE conditions | `Select::table().filter(|b| b.push("id > ").push_bind(10))` |
-| `join` | Creates a JOIN query statement | `Select::table().join("JOIN comments ON ...")` |
+| `with_table` | Creates a Select instance with a custom table name | `Select::with_table("custom_table")...` |
+| `from_query` | Creates a Select instance from a query | `Select::from_query(query_builder)...` |
+| `from_query_with_table` | Creates a Select instance from a query with a custom table name | `Select::from_query_with_table(query_builder, "custom_table")...` |
+| `columns` | Creates a custom column query statement | `Select::table().columns(fn)` |
+| `filter` | Creates a SELECT query with custom WHERE conditions | `Select::table().filter(fn)` |
+| `join` | Creates a JOIN query statement | `Select::table().join(JoinType::Left, " table ", fn)` |
 | `group_by` | Creates a GROUP BY query statement | `Select::table().group_by("category_id")` |
-| `having` | Creates a HAVING clause | `Select::table().having(|b| b.push("COUNT(*) > 1"))` |
+| `having` | Creates a HAVING clause | `Select::table().having(fn)` |
 | `by_primary_key` | Creates a SELECT query by primary key | `Select::table().by_primary_key(&PRIMARY_KEY, &ids)` |
 | `order_by` | Creates an ORDER BY clause | `Select::table().order_by("id", Order::Desc)` |
-| `paginate` | Creates a pagination query statement | `Select::table().paginate(1, 10).unwrap()` |
-| `cursor` | Creates a cursor pagination query statement | `Select::table().cursor("id", Order::Asc, None, 10).unwrap()` |
+| `paginate` | Creates a pagination query statement | `Select::table().paginate(1, 10)?` |
+| `cursor` | Creates a cursor pagination query statement | `Select::table().cursor("id", Order::Asc, None, 10)?` |
 | `finish` | Completes building and returns the internal QueryBuilder | `Select::table().finish()` |
 
 ## 6. Subquery Builder
@@ -225,11 +225,11 @@ For more examples, check integration tests under each database module.
 |--------|-------------|---------|
 | `table` | Creates a subquery with the default table name | `Subquery::<Article>::table()` |
 | `with_table` | Creates a subquery with a custom table name | `Subquery::with_table("custom_table")` |
-| `columns` | Adds custom columns to the subquery | `Subquery::table().columns(|b| b.push("AVG(views)"))` |
-| `filter` | Adds WHERE condition to the subquery | `Subquery::table().filter(|b| b.push("id > ").push_bind(3))` |
-| `join` | Adds JOIN clause to the subquery | `Subquery::table().join("JOIN comments ON ...")` |
+| `columns` | Adds custom columns to the subquery | `Subquery::table().columns(fn)` |
+| `filter` | Adds WHERE condition to the subquery | `Subquery::table().filter(fn)` |
+| `join` | Adds JOIN clause to the subquery | `Subquery::table().join(JoinType::Left, " table ", fn)` |
 | `group_by` | Adds GROUP BY clause to the subquery | `Subquery::table().group_by("category_id")` |
-| `having` | Adds HAVING clause to the subquery | `Subquery::table().having(|b| b.push("COUNT(*) > 1"))` |
+| `having` | Adds HAVING clause to the subquery | `Subquery::table().having(fn)` |
 | `append_to` | Embeds the subquery into a parent query builder | `subquery.append_to(&mut parent_query)` |
 
 ---
