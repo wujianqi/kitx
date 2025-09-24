@@ -18,16 +18,16 @@ use crate::common::{conversion::ValueConvert, fields::get_value};
 /// Sort order enum
 /// 
 /// # Variants
-/// * [Asc](SortOrder::Asc) - Ascending order
-/// * [Desc](SortOrder::Desc) - Descending order
+/// * [Asc](Order::Asc) - Ascending order
+/// * [Desc](Order::Desc) - Descending order
 /// 
 /// 排序顺序枚举
 /// 
 /// # 变体
-/// * [Asc](SortOrder::Asc) - 升序
-/// * [Desc](SortOrder::Desc) - 降序
+/// * [Asc](Order::Asc) - 升序
+/// * [Desc](Order::Desc) - 降序
 #[derive(Debug, Serialize, Deserialize, Default, Clone, PartialEq, Eq, Hash)]
-pub enum SortOrder {
+pub enum Order {
     #[serde(rename = "ASC")]
     #[default]
     Asc,
@@ -35,7 +35,7 @@ pub enum SortOrder {
     Desc
 }
 
-impl SortOrder {
+impl Order {
     /// Convert SortOrder to string representation
     /// 
     /// # Returns
@@ -47,10 +47,20 @@ impl SortOrder {
     /// 升序时返回"ASC"，降序时返回"DESC"
     pub fn as_str(&self) -> &str {
         match self {
-            SortOrder::Asc => "ASC",
-            SortOrder::Desc => "DESC",
+            Order::Asc => "ASC",
+            Order::Desc => "DESC",
         }
     }
+}
+
+/// Join type enum
+#[derive(Debug, Clone)]
+pub enum JoinType {
+    Inner,
+    Left,
+    Right,
+    Full,
+    Cross
 }
 
 /// Primary key struct
@@ -67,7 +77,7 @@ impl SortOrder {
 #[derive(Debug, Clone)]
 pub enum PrimaryKey<'a> {
     Single(&'a str, bool),
-    Composite(Vec<&'a str>),
+    Composite(&'a [&'a str]),
 }
 
 impl <'a> PrimaryKey<'a> {
@@ -204,7 +214,7 @@ pub struct CursorPaginatedResult<T, C> {
     /// Sort order direction
     /// 
     /// 排序方向
-    pub sort_order: SortOrder,
+    pub sort_order: Order,
 }
 
 impl<T, C> CursorPaginatedResult<T, C> {
@@ -227,7 +237,7 @@ impl<T, C> CursorPaginatedResult<T, C> {
     /// 
     /// # 返回值
     /// 新的CursorPaginatedResult实例
-    pub fn new(data: Vec<T>, limit: u64, sort_order: SortOrder) -> Self {
+    pub fn new(data: Vec<T>, limit: u64, sort_order: Order) -> Self {
         Self {
             data,
             next_cursor: None,
@@ -288,8 +298,8 @@ impl<T, C> CursorPaginatedResult<T, C> {
         if self.data.len() as u64 == self.limit {
             // 根据排序方向获取双向游标
             let (next_item, prev_item) = match self.sort_order {
-                SortOrder::Asc => (self.data.last(), self.data.first()),
-                SortOrder::Desc => (self.data.first(), self.data.last()),
+                Order::Asc => (self.data.last(), self.data.first()),
+                Order::Desc => (self.data.first(), self.data.last()),
             };
             
             self.next_cursor = next_item.map(|item| get_value::<T, C>(item, column_key));

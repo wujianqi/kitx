@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 use field_access::FieldAccess;
 use sqlx::{Database, Encode, QueryBuilder, Type};
 
-use crate::common::helper::get_table_name;
+use crate::common::{helper::get_table_name, types::JoinType};
 
 /// Subquery fragment type: strictly distinguishes between text and binding operations
 /// 
@@ -51,7 +51,11 @@ where
 {
 
     parts: Vec<SubqueryPart<VAL>>,
+    table_name: String,
     has_from: bool,
+    has_filter: bool,
+    has_group_by: bool,
+    has_having: bool,
     _phantom: PhantomData<(ET, &'a ())>,
 }
 
@@ -60,108 +64,56 @@ where
     ET: FieldAccess + Default,
     VAL: 'a,
 {
-    /// Add SELECT fields (default all fields)
-    /// 
-    /// # Returns
-    /// A new Subquery instance with default field selection
-    /// 
-    /// 添加 SELECT 字段（默认所有字段）
-    /// 
-    /// # 返回值
-    /// 带有默认字段选择的新 Subquery 实例
-    pub fn select_default() -> Self {
-        let columns = ET::default().field_names().join(", ");
+    pub fn table() -> Self {
+        Self::with_table(&get_table_name::<ET>())
+    }
+
+    /// 开始构建 SELECT 查询（指定表名）
+    pub fn with_table(table_name: &str) -> Self {
         Self {
-            parts: vec![SubqueryPart::Text(format!("SELECT {}", columns))],
-            has_from: false,
+            parts: vec![SubqueryPart::Text("SELECT ".to_string())],
+            table_name: table_name.to_string(),
+            has_from: false,  
+            has_filter: false, 
+            has_group_by: false,
+            has_having: false,
             _phantom: PhantomData,
         }
     }
 
-    /// Custom SELECT fields
-    /// 
-    /// # Arguments
-    /// * `f` - Function to build the SELECT fields
-    /// 
-    /// # Returns
-    /// A new Subquery instance with custom field selection
-    /// 
-    /// 自定义 SELECT 字段
-    /// 
-    /// # 参数
-    /// * `f` - 构建 SELECT 字段的函数
-    /// 
-    /// # 返回值
-    /// 带有自定义字段选择的新 Subquery 实例
-    pub fn select(f: impl FnOnce(&mut SubqueryBuilder<'_, VAL>)) -> Self {
-        let mut parts = vec![SubqueryPart::Text("SELECT ".to_string())];
-        let mut builder = SubqueryBuilder { parts: &mut parts };
-
-        f(&mut builder);
-        Self {
-            parts,
-            has_from: false,
-            _phantom: PhantomData,
-        }
+    fn push_part(&mut self, f: impl FnOnce(&mut SubqueryBuilder<'_, VAL>)) {
+        if let Some(SubqueryPart::Text(last)) = self.parts.last_mut() {
+            if !last.ends_with(' ') {
+                *last = format!("{} ", last);
+            }
+        } 
+        let mut builder = SubqueryBuilder { parts: &mut self.parts };
+        f(&mut builder)
     }
 
-    /// Add table to the subquery
-    /// 
-    /// # Arguments
-    /// * `table_name` - Name of the table to query from
-    /// 
-    /// # Returns
-    /// The Subquery instance with the table added
-    /// 
-    /// 向子查询中添加表
-    /// 
-    /// # 参数
-    /// * `table_name` - 要查询的表名
-    /// 
-    /// # 返回值
-    /// 添加了表的 Subquery 实例
-    fn from_table(mut self, table_name: impl Into<String>) -> Self {
+    /// 添加自定义列
+    pub fn columns(
+        mut self,
+        column_build_fn: impl FnOnce(&mut SubqueryBuilder<'_, VAL>)
+    ) -> Self {
         if self.has_from {
             return self;
         }
 
-        self.parts.push(SubqueryPart::Text(format!(" FROM {}", table_name.into())));
+        self.push_part(column_build_fn);
+        self.parts.push(SubqueryPart::Text(format!(" FROM {}", &self.table_name)));
         self.has_from = true;
         self
     }
 
-    /// Add default table to the subquery
-    /// 
-    /// # Returns
-    /// The Subquery instance with the default table added
-    /// 
-    /// 向子查询中添加默认表
-    /// 
-    /// # 返回值
-    /// 添加了默认表的 Subquery 实例
-    pub fn from_default(self) -> Self {        
-        self.from_table(get_table_name::<ET>())
+    /// 添加所有字段
+    fn add_from_clause(&mut self) {        
+        let columns = ET::default().field_names().join(", ");
+        self.parts.push(SubqueryPart::Text(format!("{} FROM {}", columns, &self.table_name)));
+        self.has_from = true;
     }
 
-    /// Add table to the subquery, can include alias, between FROM and WHERE
-    /// 
-    /// # Arguments
-    /// * `table_name` - Name of the table to query from, can include alias
-    /// 
-    /// # Returns
-    /// The Subquery instance with the table added
-    /// 
-    /// 向子查询中添加表，可以包含别名，介于 FROM 和 WHERE 之间
-    /// 
-    /// # 参数
-    /// * `table_name` - 要查询的表名，可以包含别名
-    /// 
-    /// # 返回值
-    /// 添加了表的 Subquery 实例
-    pub fn from(self, table_name: impl Into<String>) -> Self {
-        self.from_table(table_name)
-    }
-
+    
     /// Add WHERE condition (using custom Builder)
     /// 
     /// # Arguments
@@ -177,18 +129,87 @@ where
     /// 
     /// # 返回值
     /// 添加了 WHERE 条件的 Subquery 实例
-    pub fn where_(mut self, f: impl FnOnce(&mut SubqueryBuilder<'_, VAL>)) -> Self {
-        if let Some(SubqueryPart::Text(last)) = self.parts.last_mut() {
-            if !last.ends_with(' ') {
-                *last = format!("{} ", last);
-            }
+    pub fn filter(mut self, f: impl FnOnce(&mut SubqueryBuilder<'_, VAL>)) -> Self {
+        if !self.has_from {
+            self.add_from_clause();
         }
-        self.parts.push(SubqueryPart::Text(" WHERE ".to_string()));
- 
-        let mut builder = SubqueryBuilder { parts: &mut self.parts };
-        f(&mut builder);
+        if !self.has_filter {
+            self.parts.push(SubqueryPart::Text(" WHERE ".to_string()));
+        }       
+        self.push_part(f);
         self
     }
+
+    /// Add JOIN clause
+    pub fn join(
+        mut self,
+        join_type: JoinType,
+        table: impl Into<String>,
+        on_condition: impl FnOnce(&mut SubqueryBuilder<'_, VAL>),
+    ) -> Self {
+        if !self.has_from {
+            self.add_from_clause();
+        }
+        let join_keyword = match join_type {
+            JoinType::Inner => "INNER JOIN",
+            JoinType::Left => "LEFT JOIN",
+            JoinType::Right => "RIGHT JOIN",
+            JoinType::Full => "FULL JOIN",
+            JoinType::Cross => "CROSS JOIN",
+        };
+
+        self.parts.push(SubqueryPart::Text(table.into()));
+        self.parts.push(SubqueryPart::Text(join_keyword.to_string()));
+        self.push_part(on_condition);
+        self
+    }
+
+    /// 添加 GROUP BY 子句
+    /// 
+    /// # Arguments
+    /// * `field` - 分组字段（可为表达式）
+    /// 
+    /// # Returns
+    pub fn group_by(mut self, field: impl Into<String>) -> Self {
+        if !self.has_from {
+            self.add_from_clause();
+        }
+        let field = field.into();
+      
+        if self.has_group_by {
+            self.parts.push(SubqueryPart::Text(", ".into()));
+            
+        } else {
+            self.parts.push(SubqueryPart::Text(" GROUP BY ".into()));
+            self.has_group_by = true;
+        }
+        self.parts.push(SubqueryPart::Text(field.into()));
+        
+        self
+    }
+
+    /// 添加 HAVING 子句（必须在 GROUP BY 之后）
+    /// 
+    /// # Arguments
+    /// * `condition` - HAVING 条件构建函数
+    /// 
+    /// # Returns
+    /// 添加了 HAVING 的 Select 实例   
+    pub fn having(
+        mut self,
+        condition: impl FnOnce(&mut SubqueryBuilder<'_, VAL>),
+    ) -> Self {
+        if !self.has_group_by {
+            return self;
+        }
+        if !self.has_having {
+            self.parts.push(SubqueryPart::Text(" HAVING ".into()));
+            self.has_having = true;
+        }        
+        self.push_part(condition);
+        self
+    }
+
     
     /// Embed the subquery into the parent query builder
     /// 
@@ -215,13 +236,16 @@ where
     /// 
     /// # 类型参数
     /// * `DB` - 实现 sqlx::Database trait 的数据库类型
-    pub fn append_to<DB>(self, query_builder: &mut QueryBuilder<'a, DB>)
+    pub fn append_to<DB>(mut self, query_builder: &mut QueryBuilder<'a, DB>)
     where
         VAL: Encode<'a, DB> + Type<DB>,
         DB: Database,
     {
         query_builder.push(" (");
 
+        if !self.has_from {
+            self.add_from_clause();
+        }
         for part in self.parts {
             match part {
                 SubqueryPart::Text(text) => query_builder.push(&text),
@@ -301,3 +325,4 @@ impl<'a, VAL> SubqueryBuilder<'a, VAL> {
         self
     }
 }
+

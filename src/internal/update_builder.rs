@@ -43,31 +43,6 @@ where
     DB: Database,
     VAL: Encode<'a, DB> + Type<DB> + 'a,
 {
-    /// Create a basic query
-    /// 
-    /// # Arguments
-    /// * `table_name` - Name of the table to update
-    /// 
-    /// # Returns
-    /// A new Update instance
-    /// 
-    /// 创建基础查询
-    /// 
-    /// # 参数
-    /// * `table_name` - 要更新的表名
-    /// 
-    /// # 返回值
-    /// 新的 Update 实例
-    fn new(table_name: impl Into<String>) -> Self {
-        let mut query_builder = QueryBuilder::new("UPDATE ");
-        query_builder.push(table_name.into()).push(" SET ");
-        
-        Self {
-            query_builder,
-            _phantom: PhantomData,
-        }
-    }
-
     /// Create an Update instance with the default table name
     /// 
     /// # Returns
@@ -77,8 +52,8 @@ where
     /// 
     /// # 返回值
     /// 使用默认表名的新 Update 实例
-    pub fn default_table() -> Self {
-        Self::new(get_table_name::<ET>())
+    pub fn table() -> Self {
+        Self::with_table(get_table_name::<ET>())
     }
 
     /// Create an Update instance with a custom table name, can include alias, between FROM and WHERE
@@ -96,8 +71,24 @@ where
     /// 
     /// # 返回值
     /// 使用指定表名的新 Update 实例
-    pub fn table(table_name: impl Into<String>) -> Self {
-        Self::new(table_name)
+    pub fn with_table(table_name: impl Into<String>) -> Self {
+        Self::from_query_with_table(QueryBuilder::new(""), &table_name.into())
+    }
+
+    /// 从外部查询构建器创建 INSERT 构建器（使用默认表名）
+    pub fn from_query(qb: QueryBuilder<'a, DB>) -> Self {
+        Self::from_query_with_table(qb, &get_table_name::<ET>())
+    }
+
+    /// 从外部查询构建器创建 INSERT 构建器（指定表名）
+    pub fn from_query_with_table(mut query_builder: QueryBuilder<'a, DB>, table_name: impl Into<String>) -> Self {
+        query_builder.push("UPDATE ")
+            .push(table_name.into()).push(" SET ");        
+
+        Self {
+            query_builder,
+            _phantom: PhantomData,
+        }
     }
    
     /// Create a single entity update operation
@@ -140,7 +131,7 @@ where
             vec![]
         };
 
-        let mut query_builder = Self::default_table().query_builder;
+        let mut query_builder = Self::table().query_builder;
         let mut first = true;
         let fields = extract_with_bind::<VAL, _>(
             model.fields(),
@@ -164,26 +155,27 @@ where
         Ok(query_builder)
     }
 
-    /// Custom SET columns
+
+    /// Add custom query parts to the builder
     /// 
     /// # Arguments
-    /// * `set_build_fn` - Function to build the SET part of the query
+    /// * `build_fn` - Custom query builder function
     /// 
     /// # Returns
-    /// The Update instance with the SET part added
+    /// The updated builder instance
     /// 
-    /// 自定义 SET 列
+    /// 向构建器添加自定义查询部分
     /// 
     /// # 参数
-    /// * `set_build_fn` - 构建查询中 SET 部分的函数
+    /// * `build_fn` - 自定义查询构建函数
     /// 
     /// # 返回值
-    /// 添加了 SET 部分的 Update 实例
-    pub fn set(
-        mut self,
-        set_build_fn: impl FnOnce(&mut QueryBuilder<'a, DB>),
-    ) -> Self {
-        set_build_fn(&mut self.query_builder);
+    pub fn custom(
+        mut self, 
+        build_fn: impl FnOnce(&mut QueryBuilder<'a, DB>)
+    ) -> Self
+    {
+        build_fn(&mut self.query_builder);
         self
     }
 
@@ -202,16 +194,38 @@ where
     /// 
     /// # 返回值
     /// 包含 UPDATE 查询的 QueryBuilder 或错误
-    pub fn where_(
-        self,
-        filter_build_fn: impl FnOnce(&mut QueryBuilder<'_, DB>),
-    ) -> Result<QueryBuilder<'a, DB>, Error> {
-        let mut query_builder = self.query_builder;
-        
-        query_builder.push(" WHERE ");
-        filter_build_fn(&mut query_builder);
+    pub fn filter(
+        mut self,
+        filter_build_fn: impl FnOnce(&mut QueryBuilder<'a, DB>),
+    ) -> Self {
+        self.query_builder.push(" WHERE ");
+        filter_build_fn(&mut self.query_builder);
 
-        Ok(query_builder)
+        self
+    }
+
+    /// 添加 RETURNING 子句
+    /// 
+    /// # 参数
+    /// * `columns` - 要返回的列
+    /// 
+    /// # 返回值
+    /// 更新后的构建器实例
+    #[cfg(any(feature = "sqlite" , feature = "postgres"))]
+    pub fn returning<I, S>(mut self, columns: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<str>,
+    {
+        self.query_builder.push(" RETURNING ");
+        
+        let cols: Vec<String> = columns.into_iter().map(|s| s.as_ref().to_string()).collect();
+        let mut separated = self.query_builder.separated(", ");
+        for col in cols {
+            separated.push(col);
+        }
+        
+        self
     }
 
     /// Get the inner QueryBuilder
@@ -223,7 +237,7 @@ where
     /// 
     /// # 返回值
     /// 内部的 QueryBuilder 实例
-    pub fn inner(self) -> QueryBuilder<'a, DB> {
+    pub fn finish(self) -> QueryBuilder<'a, DB> {
         self.query_builder
     }
 

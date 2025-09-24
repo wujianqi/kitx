@@ -1,30 +1,30 @@
-use std::{iter::once, marker::PhantomData};
+use std::marker::PhantomData;
 
 use field_access::FieldAccess;
 use sqlx::{Database, Encode, Error, QueryBuilder, Type};
 
-use crate::common::{
+use crate::{common::{
     conversion::ValueConvert, error::QueryError, fields::batch_extract, helper::get_table_name, types::PrimaryKey
-};
+}};
 
-/// SQLite Upsert query builder
+/// MySQL Upsert query builder
 /// 
-/// This struct provides functionality to build SQLite-specific UPSERT (INSERT ... ON CONFLICT) SQL queries.
+/// This struct provides functionality to build MySQL-specific UPSERT (INSERT ... ON DUPLICATE KEY UPDATE) SQL queries.
 /// 
 /// # Type Parameters
 /// * `ET` - Entity type that implements FieldAccess trait
 /// * `DB` - Database type that implements sqlx::Database trait
 /// * `VAL` - Value type that implements Encode, Type, and ValueConvert traits
 /// 
-/// SQLite 更新插入查询构建器
+/// MySQL 更新插入查询构建器
 /// 
-/// 该结构体提供了构建 SQLite 特定的 UPSERT (INSERT ... ON CONFLICT) SQL 查询的功能。
+/// 该结构体提供了构建 MySQL 特定的 UPSERT (INSERT ... ON DUPLICATE KEY UPDATE) SQL 查询的功能。
 /// 
 /// # 类型参数
 /// * `ET` - 实现 FieldAccess trait 的实体类型
 /// * `DB` - 实现 sqlx::Database trait 的数据库类型
 /// * `VAL` - 实现 Encode、Type 和 ValueConvert traits 的值类型
-pub struct Upset<'a, ET, DB, VAL>
+pub struct Upsert<'a, ET, DB, VAL>
 where
     ET: FieldAccess,
     DB: Database,
@@ -33,15 +33,14 @@ where
     _phantom: PhantomData<(&'a ET, DB, VAL)>,
 }
 
-impl<'a, ET, DB, VAL> Upset<'a, ET, DB, VAL>
+impl<'a, ET, DB, VAL> Upsert<'a, ET, DB, VAL>
 where
     ET: FieldAccess,
     DB: Database,
     VAL: Encode<'a, DB> + Type<DB> + ValueConvert + 'a,
 {
-    /// 批量执行 UPSERT 操作
-    /// 
-    /// Batch execute UPSERT operations
+
+    /// Create multiple records upsert operation
     /// 
     /// # Arguments
     /// * `models` - Collection of entity models to upsert
@@ -50,7 +49,7 @@ where
     /// # Returns
     /// A QueryBuilder with the UPSERT query or an Error
     /// 
-    /// 批量执行 UPSERT 操作
+    /// 创建多条记录更新插入操作
     /// 
     /// # 参数
     /// * `models` - 要更新插入的实体模型集合
@@ -67,9 +66,13 @@ where
         if models.is_empty() {
             return Err(QueryError::NoEntitiesProvided.into());
         }
-        
-        let (names, values) = batch_extract::<ET, VAL>(&models, &[], false);
-        let keys = primary_key.get_keys();
+
+        let keys = if primary_key.auto_generate() {
+            primary_key.get_keys()
+        } else {
+            vec![]
+        };
+        let (names, values) = batch_extract::<ET, VAL>(&models, &keys, false);
         let table_name = get_table_name::<ET>();
         
         let mut query_builder = QueryBuilder::new(
@@ -78,29 +81,22 @@ where
 
         query_builder.push_values(
             values,
-            | mut b, row| {
-                for (i, value) in row.into_iter().enumerate() {
-                    if keys.contains(&names[i]) && VAL::is_default_value(&value) {
-                        b.push(" NULL ");
-                    } else {
-                        b.push_bind(value);
-                    }
+            |mut b, row| {
+                for value in row {
+                    b.push_bind(value);
                 }
             }
         );
-        
-        if !keys.is_empty() {
-            query_builder.push(" ON CONFLICT (")
-                    .push(keys.join(", "))
-                    .push(") DO UPDATE SET ");
 
+        if !keys.is_empty() {
+            query_builder.push(" ON DUPLICATE KEY UPDATE ");
             let mut first = true;
             for name in &names {
                 if !first {
                     query_builder.push(", ");
                 }
                 first = false;
-                query_builder.push(format!("{} = EXCLUDED.{}", name, name));
+                query_builder.push(format!("{} = VALUES({})", name, name));
             }
         }
 
@@ -129,6 +125,6 @@ where
         primary_key: &PrimaryKey<'a>,
     ) -> Result<QueryBuilder<'a, DB>, Error>
     {
-        Self::many(once(model), primary_key)
+        Self::many(std::iter::once(model), primary_key)
     }
 }

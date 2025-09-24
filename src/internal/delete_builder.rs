@@ -1,7 +1,7 @@
 use std::marker::PhantomData;
 
 use field_access::FieldAccess;
-use sqlx::{Database, Encode, Error, QueryBuilder, Type};
+use sqlx::{Database, Encode, QueryBuilder, Type};
 
 use crate::common::{
     filter::push_primary_key_bind, helper::get_table_name, types::PrimaryKey
@@ -29,6 +29,7 @@ where
     DB: Database,
 {
     query_builder: QueryBuilder<'a, DB>,
+    has_filter: bool,
     _phantom: PhantomData<(ET, VAL)>,
 }
 
@@ -38,31 +39,6 @@ where
     DB: Database,
     VAL: Encode<'a, DB> + Type<DB>,
 {
-    /// Create a new Delete instance with the specified table name
-    /// 
-    /// # Arguments
-    /// * `table_name` - Name of the table to delete from
-    /// 
-    /// # Returns
-    /// A new Delete instance
-    /// 
-    /// 使用指定的表名创建新的 Delete 实例
-    /// 
-    /// # 参数
-    /// * `table_name` - 要删除的表名
-    /// 
-    /// # 返回值
-    /// 新的 Delete 实例
-    fn new(table_name: impl Into<String>) -> Self {
-        let mut query_builder =  QueryBuilder::new("DELETE FROM ");
-        query_builder.push(table_name.into());
-
-        Self {
-            query_builder,
-            _phantom: PhantomData,
-        }      
-    }
-
     /// Create a Delete instance using the default table name derived from the entity type
     /// 
     /// # Returns
@@ -72,8 +48,8 @@ where
     /// 
     /// # 返回值
     /// 使用默认表名的新 Delete 实例
-    pub fn from_default() -> Self {
-        Self::new(get_table_name::<ET>())
+    pub fn table() -> Self {
+        Self::with_table(get_table_name::<ET>())
     }
 
     /// Create a Delete instance with a custom table name
@@ -91,8 +67,24 @@ where
     /// 
     /// # 返回值
     /// 使用指定表名的新 Delete 实例
-    pub fn from(table_name: impl Into<String>) -> Self {
-        Self::new(table_name)
+    pub fn with_table(table_name: impl Into<String>) -> Self {
+        Self::from_query_with_table(QueryBuilder::new(""), table_name)
+    }
+
+    /// 从外部查询构建器创建 INSERT 构建器（使用默认表名）
+    pub fn from_query(qb: QueryBuilder<'a, DB>) -> Self {
+        Self::from_query_with_table(qb, &get_table_name::<ET>())
+    }
+
+    /// 从外部查询构建器创建 INSERT 构建器（指定表名）
+    pub fn from_query_with_table(mut query_builder: QueryBuilder<'a, DB>, table_name: impl Into<String>) -> Self {
+        query_builder.push("DELETE FROM ").push(table_name.into());
+
+        Self {
+            query_builder,
+            has_filter: false,
+            _phantom: PhantomData,
+        }
     }
     
     /// Create a DELETE query by primary key
@@ -112,16 +104,15 @@ where
     /// 
     /// # 返回值
     /// 包含 DELETE 查询的 QueryBuilder 或错误
-    pub fn by_primary_key(
-        primary_key: &PrimaryKey<'a>,
-        primary_value: &'a Vec<VAL>,
-    ) -> Result<QueryBuilder<'a, DB>, Error>
-    {
-        let mut query_builder = Self::from_default().query_builder;        
-        query_builder.push(" WHERE ");
-        push_primary_key_bind::<ET, DB, VAL>(&mut query_builder, primary_key, primary_value);
-
-        Ok(query_builder)
+    pub fn by_primary_key(mut self, primary_key: &PrimaryKey<'a>, primary_value: &'a Vec<VAL>,) -> Self {
+        if !self.has_filter {
+            self.query_builder.push(" WHERE ");
+            self.has_filter = true;
+        } else {
+            self.query_builder.push(" AND ");
+        }
+        push_primary_key_bind::<ET, DB, VAL>(&mut self.query_builder, primary_key, &primary_value);
+        self
     }
 
     /// Create a DELETE query with custom WHERE conditions
@@ -139,13 +130,62 @@ where
     /// 
     /// # 返回值
     /// 包含 DELETE 查询的 QueryBuilder 或错误
-    pub fn where_(
+    pub fn filter(
         mut self,
-        filter_build_fn: impl FnOnce(&mut QueryBuilder<'_, DB>),
-    ) -> Result<QueryBuilder<'a, DB>, Error> {
+        filter_build_fn: impl FnOnce(&mut QueryBuilder<'a, DB>),
+    ) -> Self {
         self.query_builder.push(" WHERE ");
         filter_build_fn(&mut self.query_builder);
-        Ok(self.query_builder)
+
+        self
     }
+
+    /// 添加 RETURNING 子句
+    /// 
+    /// # 参数
+    /// * `columns` - 要返回的列
+    /// 
+    /// # 返回值
+    /// 更新后的构建器实例
+    #[cfg(any(feature = "sqlite" , feature = "postgres"))]
+    pub fn returning<I, S>(mut self, columns: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<str>,
+    {
+        self.query_builder.push(" RETURNING ");
+        
+        let cols: Vec<String> = columns.into_iter().map(|s| s.as_ref().to_string()).collect();
+        let mut separated = self.query_builder.separated(", ");
+        for col in cols {
+            separated.push(col);
+        }
+        
+        self
+    }
+
+    /// 添加自定义查询部分
+    /// 
+    /// # 参数
+    /// * `build_fn` - 自定义构建函数
+    /// 
+    /// # 返回值
+    /// 更新后的构建器实例
+    pub fn custom<F>(mut self, build_fn: F) -> Self
+    where
+        F: FnOnce(&mut QueryBuilder<'a, DB>),
+    {
+        build_fn(&mut self.query_builder);
+        self
+    }
+
+    /// 构建最终的查询
+    /// 
+    /// # 返回值
+    /// QueryBuilder 实例
+    pub fn finish(self) -> QueryBuilder<'a, DB> {
+        self.query_builder
+    }
+
 
 }

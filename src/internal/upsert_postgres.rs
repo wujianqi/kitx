@@ -24,7 +24,7 @@ use crate::common::{
 /// * `ET` - 实现 FieldAccess trait 的实体类型
 /// * `DB` - 实现 sqlx::Database trait 的数据库类型
 /// * `VAL` - 实现 Encode、Type 和 ValueConvert traits 的值类型
-pub struct Upset<'a, ET, DB, VAL>
+pub struct Upsert<'a, ET, DB, VAL>
 where
     ET: FieldAccess,
     DB: Database,
@@ -33,7 +33,7 @@ where
     _phantom: PhantomData<(&'a ET, DB, VAL)>,
 }
 
-impl<'a, ET, DB, VAL> Upset<'a, ET, DB, VAL>
+impl<'a, ET, DB, VAL> Upsert<'a, ET, DB, VAL>
 where
     ET: FieldAccess,
     DB: Database,
